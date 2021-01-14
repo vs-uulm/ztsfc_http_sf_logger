@@ -20,3 +20,4 @@ conf.yml
 
 # Log files
 access.log
+sf-logger*.log
