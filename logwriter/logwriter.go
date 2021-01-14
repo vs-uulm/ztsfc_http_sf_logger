@@ -11,7 +11,7 @@ import (
 const capacity = 32768
 
 type LogWriter struct {
-    logFilePath string
+    getLogFilePath func() string
     buffer []byte
     position int
     channel chan []byte
@@ -19,9 +19,9 @@ type LogWriter struct {
 }
 
 // Creates and return a new LogWriter structure
-func NewLogWriter(_logFilePath string, _channel chan []byte, _period time.Duration) *LogWriter {
+func NewLogWriter(_getLogFilePath func() string, _channel chan []byte, _period time.Duration) *LogWriter {
     return &LogWriter{
-        logFilePath: _logFilePath,
+        getLogFilePath: _getLogFilePath,
         buffer: make([]byte, capacity),
         channel: _channel,
         saveBufferEveryNSeconds: _period,
@@ -67,9 +67,12 @@ func (lw *LogWriter) Work() {
 // Save the log buffer content to the log file and clear the buffer
 func (lw *LogWriter) Save() {
     // Save only if buffer is not empty 
-    if lw.position != 0 {        
+    if lw.position != 0 {
+    
+        logFilePath := lw.getLogFilePath()
+        
         // Open the log file
-        file, err := os.OpenFile(lw.logFilePath, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0666)
+        file, err := os.OpenFile(logFilePath, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0666)
         if err != nil {
             log.Fatal("[LogWriter.Save] Error: ", err)
         }

@@ -50,6 +50,10 @@ type Router struct {
     logWriter *logwriter.LogWriter
 }
 
+func getLogFilePath() string {
+    return "./access.log"
+}
+
 func NewRouter(_sf service_function.ServiceFunction,
                _log_level int) (*Router, error) {
     router := new(Router)
@@ -60,7 +64,7 @@ func NewRouter(_sf service_function.ServiceFunction,
     router.logChannel = make(chan []byte, 256)
 
     // Create a new log writer
-    router.logWriter = logwriter.NewLogWriter("./access.log", router.logChannel, 5)
+    router.logWriter = logwriter.NewLogWriter(getLogFilePath, router.logChannel, 5)
 
     // Run main loop of logWriter
     go router.logWriter.Work()
