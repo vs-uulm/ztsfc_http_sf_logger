@@ -6,6 +6,7 @@ import (
     "time"
     "crypto/tls"
     "crypto/x509"
+    "strconv"
     
     "local.com/leobrada/ztsfc_http_sf_logger/logwriter"
 )
@@ -16,6 +17,12 @@ const (
     ADVANCED
     DEBUG
     ALL
+)
+
+const (
+    SFLOGGER_REGISTER_PACKETS_ONLY  uint32  = 1<<0
+    SFLOGGER_PRINT_TLS_INFO         uint32  = 1<<8
+    SFLOGGER_PRINT_EMPTY_FIELDS     uint32  = 1<<31
 )
 
 type ServiceFunction interface {
@@ -80,8 +87,27 @@ func (sf *ServiceFunctionLogger) Log (logLevel int, messages ...string) {
 
 
 func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.Request) (forward bool) {
+    var logLevel uint32
     fmt.Printf("\n+++ ApplyFunction +++\nRequest: %+v\n\n", req)
+    
+    LoggerHeaderName := "Sfloggerlevel"
+    fmt.Printf("req.Header[LoggerHeaderName] = %v\n", req.Header[LoggerHeaderName])
+        
+    logLevelString, ok := req.Header[LoggerHeaderName]
+    if ok {
+        req.Header.Del(LoggerHeaderName)
+        u64, err := strconv.ParseUint(logLevelString[0], 10, 32) 
+        if err != nil {
+            fmt.Println(err)
+        }
+        logLevel = uint32(u64)
+    } else {
+        logLevel = SFLOGGER_REGISTER_PACKETS_ONLY
+    }
 
+    fmt.Printf("logLevel = %d\n", logLevel)
+    return true
+  
     //
     // Change all 'fmt.Printf("%s", ' by 'sf.Log(ALL, '
     //
