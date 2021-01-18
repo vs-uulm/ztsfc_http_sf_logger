@@ -6,6 +6,7 @@ import (
     "time"
     // "crypto/tls"
     "crypto/x509"
+    "crypto/x509/pkix"
     "strconv"
     
     "local.com/leobrada/ztsfc_http_sf_logger/logwriter"
@@ -426,16 +427,55 @@ func printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.KeyUsage", cert.KeyUsage))
     
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Extensions", cert.Extensions))
+    if (len(cert.Extensions) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.Extensions"))
+        }
+    } else {
+        for i := range cert.Extensions {
+            fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Extensions[%d]",i)))
+            printExtensionInfo(cert.Extensions[i])
+        }
+    }
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExtraExtensions", cert.ExtraExtensions))
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.UnhandledCriticalExtensions", cert.UnhandledCriticalExtensions))
+    if (len(cert.ExtraExtensions) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.ExtraExtensions"))
+        }
+    } else {
+        for i := range cert.ExtraExtensions {
+            fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.ExtraExtensions[%d]",i)))
+            printExtensionInfo(cert.ExtraExtensions[i])
+        }
+    }
     
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExtKeyUsage", cert.ExtKeyUsage))
+    if (len(cert.UnhandledCriticalExtensions) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.UnhandledCriticalExtensions"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "UnhandledCriticalExtensions", cert.UnhandledCriticalExtensions))
+    }
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.UnknownExtKeyUsage", cert.UnknownExtKeyUsage))
+    
+    if (len(cert.ExtKeyUsage) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.ExtKeyUsage"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "ExtKeyUsage", cert.ExtKeyUsage))
+    }
+    
+    
+    if (len(cert.UnknownExtKeyUsage) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.UnknownExtKeyUsage"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.UnknownExtKeyUsage", cert.UnknownExtKeyUsage))
+    }
     
    
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.BasicConstraintsValid", cert.BasicConstraintsValid))
@@ -448,48 +488,171 @@ func printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.MaxPathLenZero", cert.MaxPathLenZero))
     
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SubjectKeyId", cert.SubjectKeyId))
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.AuthorityKeyId", cert.AuthorityKeyId))
-    
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.OCSPServer", cert.OCSPServer))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.IssuingCertificateURL", cert.IssuingCertificateURL))
-    
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.DNSNames", cert.DNSNames))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.EmailAddresses", cert.EmailAddresses))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.IPAddresses", cert.IPAddresses))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.URIs", cert.URIs))
+    if (len(cert.SubjectKeyId) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.SubjectKeyId"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SubjectKeyId", cert.SubjectKeyId))
+    }
     
     
+    if (len(cert.AuthorityKeyId) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.AuthorityKeyId"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.AuthorityKeyId", cert.AuthorityKeyId))
+    }
+    
+    
+    if (len(cert.OCSPServer) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.OCSPServer"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "cert.OCSPServers"))
+        for i := range cert.OCSPServer {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", cert.OCSPServer[i]))
+        }
+    }
+    
+    if (len(cert.IssuingCertificateURL) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.IssuingCertificateURL"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "cert.OCSPServers"))
+        for i := range cert.IssuingCertificateURL {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", cert.IssuingCertificateURL[i]))
+        }
+    }
+    
+    
+    if (len(cert.DNSNames) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.DNSNames"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "cert.DNSNames"))
+        for i := range cert.DNSNames {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", cert.DNSNames[i]))
+        }
+    }
+    
+    if (len(cert.EmailAddresses) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.EmailAddresses"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "cert.EmailAddresses"))
+        for i := range cert.EmailAddresses {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", cert.EmailAddresses[i]))
+        }
+    }
+    
+    
+    if (len(cert.IPAddresses) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.IPAddresses"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "cert.IPAddresses"))
+        for i := range cert.IPAddresses {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", cert.IPAddresses[i]))
+        }
+    }
+    
+    if (len(cert.URIs) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.URIs"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "cert.URIs"))
+        for i := range cert.URIs {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", cert.URIs[i]))
+        }
+    }
+
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedDNSDomainsCritical", cert.PermittedDNSDomainsCritical))
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedDNSDomains", cert.PermittedDNSDomains))
+    logSliceStrings(cert.PermittedDNSDomains, "cert.PermittedDNSDomains", logLevel)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedDNSDomains", cert.ExcludedDNSDomains))
+    logSliceStrings(cert.ExcludedDNSDomains, "cert.ExcludedDNSDomains", logLevel)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedIPRanges", cert.PermittedIPRanges))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedIPRanges", cert.ExcludedIPRanges))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedEmailAddresses", cert.PermittedEmailAddresses))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedEmailAddresses", cert.ExcludedEmailAddresses))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedURIDomains", cert.PermittedURIDomains))
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedURIDomains", cert.ExcludedURIDomains))
+    if (len(cert.PermittedIPRanges) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.PermittedIPRanges"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedIPRanges", cert.PermittedIPRanges))
+    }
     
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.CRLDistributionPoints", cert.CRLDistributionPoints))
+    if (len(cert.ExcludedIPRanges) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.ExcludedIPRanges"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedIPRanges", cert.ExcludedIPRanges))
+    }
+   
+
+    logSliceStrings(cert.PermittedEmailAddresses, "cert.PermittedEmailAddresses", logLevel)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PolicyIdentifiers", cert.PolicyIdentifiers))
+    logSliceStrings(cert.ExcludedEmailAddresses, "cert.ExcludedEmailAddresses", logLevel)
+    
+    logSliceStrings(cert.PermittedURIDomains, "cert.PermittedURIDomains", logLevel)
+    
+    logSliceStrings(cert.ExcludedURIDomains, "cert.ExcludedURIDomains", logLevel)
+    
+    
+    logSliceStrings(cert.CRLDistributionPoints, "cert.CRLDistributionPoints", logLevel)
+    
+    if (len(cert.PolicyIdentifiers) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "cert.PolicyIdentifiers"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PolicyIdentifiers", cert.PolicyIdentifiers))
+    }
     
     fmt.Printf("%s", fmt.Sprintf("%30s  End of %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
     return
+}
+
+func printExtensionInfo(ext pkix.Extension) {
+    fmt.Printf("%s", fmt.Sprintf("%30s  Id:          %v\n", "", ext.Id))
+    fmt.Printf("%s", fmt.Sprintf("%30s  Critical:    %v\n", "", ext.Critical))
+    fmt.Printf("%s", fmt.Sprintf("%30s  Value (raw): %v\n", "", ext.Value))    
+    fmt.Printf("%s", fmt.Sprintf("%30s  Value:       %s\n", "", string(ext.Value)))    
+    return
+}
+
+
+func logSliceBytes(data []byte, name string, logLevel uint32) {
+    if (len(data) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", name))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", name))
+        for i := range data {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", data[i]))
+        }
+    }
+}
+
+func logSliceStrings(data []string, name string, logLevel uint32) {
+    if (len(data) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", name))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", name))
+        for i := range data {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", data[i]))
+        }
+    }
 }
