@@ -4,7 +4,9 @@ import (
     "net/http"
     "fmt"
     "time"
-
+    "crypto/tls"
+    "crypto/x509"
+    
     "local.com/leobrada/ztsfc_http_sf_logger/logwriter"
 )
 
@@ -139,26 +141,111 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 
     
     fmt.Printf("--->> %20s", "Close\n")
-
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Close", req.Close))
+    
     fmt.Printf("--->> %20s", "Host\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Host", req.Host))
 
     fmt.Printf("--->> %20s", "Form\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Form", req.Form))
 
     fmt.Printf("--->> %20s", "PostForm\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "PostForm", req.PostForm))
 
     fmt.Printf("--->> %20s", "MultipartForm\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "MultipartForm", req.MultipartForm))
 
     fmt.Printf("--->> %20s", "Trailer\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Trailer", req.Trailer))
 
     fmt.Printf("--->> %20s", "RemoteAddr\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "RemoteAddr", req.RemoteAddr))
 
     fmt.Printf("--->> %20s", "RequestURI\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "RequestURI", req.RequestURI))
 
     fmt.Printf("--->> %20s", "TLS\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS", req.TLS))
+    if (req.TLS.Version >=769) && (req.TLS.Version <= 772) {
+        fmt.Printf("%s", fmt.Sprintf("%30s:  1.%d\n", "TLS.Version", req.TLS.Version-769))
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.Version", "WRONG VALUE!"))
+    }
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.HandshakeComplete", req.TLS.HandshakeComplete))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.DidResume", req.TLS.DidResume))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.CipherSuite", tls.CipherSuiteName(req.TLS.CipherSuite)))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.NegotiatedProtocol", req.TLS.NegotiatedProtocol))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.NegotiatedProtocolIsMutual", req.TLS.NegotiatedProtocolIsMutual))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.ServerName", req.TLS.ServerName))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.PeerCertificates", req.TLS.PeerCertificates))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v of type %T\n", "TLS.PeerCertificates", req.TLS.PeerCertificates, req.TLS.PeerCertificates))
+    
+    for i := range req.TLS.PeerCertificates {
+        printCertInfo(req.TLS.PeerCertificates[i], fmt.Sprintf("TLS.PeerCertificates[%d]", i))
+    }
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.VerifiedChains", req.TLS.VerifiedChains))
+    
+    if (len(req.TLS.VerifiedChains) > 0) {
+        fmt.Printf("%s", fmt.Sprintf("%30s TLS.VerifiedChains:\n", "##############################"))
+        for verifiedChainIndex := range req.TLS.VerifiedChains {
+            for certIndex := range req.TLS.VerifiedChains[verifiedChainIndex] {
+                printCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], fmt.Sprintf("TLS.VerifiedChains[%d] info:", certIndex))
+            }
+        }
+        fmt.Printf("%s", fmt.Sprintf("%30s End of TLS.VerifiedChains\n", "##############################"))
+        
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s TLS.VerifiedChains: []\n", "##############################"))
+    }
+    
+    
+    
+    
+    if (len(req.TLS.SignedCertificateTimestamps) == 0) {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.SignedCertificateTimestamps", req.TLS.SignedCertificateTimestamps))
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "TLS.SignedCertificateTimestamps"))
+        for _, s := range req.TLS.SignedCertificateTimestamps {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", s))
+        }
+    }
+
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.OCSPResponse", req.TLS.OCSPResponse))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.TLSUnique", req.TLS.TLSUnique))
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     fmt.Printf("--->> %20s", "Cancel\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Cancel", req.Cancel))
 
     fmt.Printf("--->> %20s", "Response\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Response", req.Response))
 
 
 
@@ -211,4 +298,111 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 
     forward = true
     return forward
+}
+
+func printCertInfo(cert *x509.Certificate, title string) {
+    fmt.Printf("%s", fmt.Sprintf("%30s %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Raw", cert.Raw))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawTBSCertificate", cert.RawTBSCertificate))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawSubjectPublicKeyInfo", cert.RawSubjectPublicKeyInfo))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawSubject", cert.RawSubject))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawIssuer", cert.RawIssuer))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Signature", cert.Signature))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SignatureAlgorithm", cert.SignatureAlgorithm))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PublicKeyAlgorithm", cert.PublicKeyAlgorithm))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PublicKey", cert.PublicKey))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Version", cert.Version))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SerialNumber", cert.SerialNumber))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Issuer", cert.Issuer))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Subject", cert.Subject))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.NotBefore", cert.NotBefore))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.NotAfter", cert.NotAfter))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.KeyUsage", cert.KeyUsage))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Extensions", cert.Extensions))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExtraExtensions", cert.ExtraExtensions))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.UnhandledCriticalExtensions", cert.UnhandledCriticalExtensions))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExtKeyUsage", cert.ExtKeyUsage))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.UnknownExtKeyUsage", cert.UnknownExtKeyUsage))
+    
+   
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.BasicConstraintsValid", cert.BasicConstraintsValid))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.IsCA", cert.IsCA))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.MaxPathLen", cert.MaxPathLen))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.MaxPathLenZero", cert.MaxPathLenZero))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SubjectKeyId", cert.SubjectKeyId))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.AuthorityKeyId", cert.AuthorityKeyId))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.OCSPServer", cert.OCSPServer))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.IssuingCertificateURL", cert.IssuingCertificateURL))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.DNSNames", cert.DNSNames))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.EmailAddresses", cert.EmailAddresses))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.IPAddresses", cert.IPAddresses))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.URIs", cert.URIs))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedDNSDomainsCritical", cert.PermittedDNSDomainsCritical))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedDNSDomains", cert.PermittedDNSDomains))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedDNSDomains", cert.ExcludedDNSDomains))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedIPRanges", cert.PermittedIPRanges))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedIPRanges", cert.ExcludedIPRanges))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedEmailAddresses", cert.PermittedEmailAddresses))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedEmailAddresses", cert.ExcludedEmailAddresses))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PermittedURIDomains", cert.PermittedURIDomains))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.ExcludedURIDomains", cert.ExcludedURIDomains))
+    
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.CRLDistributionPoints", cert.CRLDistributionPoints))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PolicyIdentifiers", cert.PolicyIdentifiers))
+    
+    fmt.Printf("%s", fmt.Sprintf("%30s End of %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+    return
 }
