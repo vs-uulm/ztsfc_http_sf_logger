@@ -391,18 +391,26 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 func printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
     fmt.Printf("%s", fmt.Sprintf("%30s  %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Raw", cert.Raw))
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawTBSCertificate", cert.RawTBSCertificate))
+    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Raw")))
+    logRaw(cert.Raw)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawSubjectPublicKeyInfo", cert.RawSubjectPublicKeyInfo))
+    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawTBSCertificate")))
+    logRaw(cert.RawTBSCertificate)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawSubject", cert.RawSubject))
+    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawSubjectPublicKeyInfo")))
+    logRaw(cert.RawSubjectPublicKeyInfo)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.RawIssuer", cert.RawIssuer))
+    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawSubject")))
+    logRaw(cert.RawSubject)
     
+    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawIssuer")))
+    logRaw(cert.RawIssuer)
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Signature", cert.Signature))
+    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Signature")))
+    logRaw(cert.Signature)
+    
+    // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Signature", cert.Signature))
     
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SignatureAlgorithm", cert.SignatureAlgorithm))
     
@@ -655,4 +663,51 @@ func logSliceStrings(data []string, name string, logLevel uint32) {
             fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", data[i]))
         }
     }
+}
+
+func logRaw(data []byte) {
+    // Number of complete lines
+    numLines := int(len(data) / 32)
+    
+    // Printf all lines as 16 + 16 hex symbols
+    for i := 0; i < numLines-1; i++ {
+        
+        // Left indentation
+        fmt.Printf("%s", fmt.Sprintf("%30s  ", ""))
+        for j := 0; j < 16; j++ {
+            fmt.Printf("%s", fmt.Sprintf("%02X ", data[i * 32 + j]))
+        }
+        
+        // Space between two columns
+        fmt.Printf("%s", fmt.Sprintf("%s  ", ""))
+        for j := 0; j < 16; j++ {
+            fmt.Printf("%s", fmt.Sprintf("%02X ", data[i * 32 + 16 + j]))
+        }
+        
+        // Next line at the end
+        fmt.Printf("%s", fmt.Sprintf("\n"))
+    }
+    
+    // Last line has 1-31 symbol(s)
+    // Left indentation
+    fmt.Printf("%s", fmt.Sprintf("%30s  ", ""))
+
+    // If the last symbol is in the first column
+    if (len(data) - numLines * 32 <= 16) {
+        for j := 0; j < len(data) - numLines * 32; j++ {
+            fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + j]))
+        }
+    } else {
+    // If the last symbol is in the second column
+        for j := 0; j < 16; j++ {
+            fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + j]))
+        }
+        fmt.Printf("%s", fmt.Sprintf("%s  ", ""))
+        for j := 0; j < len(data) - numLines * 32; j++ {
+            fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + 16 + j]))
+        }
+    }
+    
+    // Next line at the end of the raw output
+    fmt.Printf("%s", fmt.Sprintf("\n"))
 }
