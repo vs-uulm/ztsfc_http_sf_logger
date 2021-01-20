@@ -22,12 +22,12 @@ const (
 )
 
 const (
-    SFLOGGER_REGISTER_PACKETS_ONLY  uint32  = 1<<0
-    SFLOGGER_PRINT_TLS_INFO         uint32  = 1<<8
-    SFLOGGER_PRINT_EMPTY_FIELDS     uint32  = 1<<31
+    SFLOGGER_REGISTER_PACKETS_ONLY  uint32  = 1 << iota
+    SFLOGGER_PRINT_TLS_INFO
+    SFLOGGER_PRINT_TLS_PUBLIC_KEY
+    SFLOGGER_PRINT_RAW
+    SFLOGGER_PRINT_EMPTY_FIELDS
 )
-
-// = 1 << iota
 
 type ServiceFunction interface {
     ApplyFunction(w http.ResponseWriter, req *http.Request) (forward bool)
@@ -95,7 +95,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     fmt.Printf("\n+++ ApplyFunction +++\nRequest: %+v\n\n", req)
     
     LoggerHeaderName := "Sfloggerlevel"
-    fmt.Printf("req.Header[LoggerHeaderName] = %v\n", req.Header[LoggerHeaderName])
+    // fmt.Printf("req.Header[LoggerHeaderName] = %v\n", req.Header[LoggerHeaderName])
         
     logLevelString, ok := req.Header[LoggerHeaderName]
     if ok {
@@ -115,140 +115,140 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 
     fmt.Printf("%s", "======================= HTTP request =======================\n")
 
-    // fmt.Printf("--->> %20s", "Method\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %s\n", "Method", req.Method))
-    // // sf.Log(ALL, fmt.Sprintf("%30s: %s\n", "Method", req.Method))
+    fmt.Printf("--->> %20s", "Method\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %s\n", "Method", req.Method))
+    // sf.Log(ALL, fmt.Sprintf("%30s: %s\n", "Method", req.Method))
 
     
-    // fmt.Printf("--->> %20s", "URL\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %s\n", "URL", req.URL))
+    fmt.Printf("--->> %20s", "URL\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %s\n", "URL", req.URL))
 
     
-    // fmt.Printf("--->> %20s", "Proto\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %s\n", "Proto", req.Proto))
+    fmt.Printf("--->> %20s", "Proto\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %s\n", "Proto", req.Proto))
 
 
-    // fmt.Printf("--->> %20s", "ProtoMajor\n")
-    // fmt.Printf("--->> %20s", "ProtoMinor\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %d.%d\n", "Protocol Version", req.ProtoMajor, req.ProtoMinor))
+    fmt.Printf("--->> %20s", "ProtoMajor\n")
+    fmt.Printf("--->> %20s", "ProtoMinor\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %d.%d\n", "Protocol Version", req.ProtoMajor, req.ProtoMinor))
 
 
-    // fmt.Printf("--->> %20s", "Header\n")
-    // for key, value := range req.Header {
-        // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", key, value))
-    // }
+    fmt.Printf("--->> %20s", "Header\n")
+    for key, value := range req.Header {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", key, value))
+    }
 
 
-    // fmt.Printf("--->> %20s", "Body\n")
-    // if req.Body == http.NoBody {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: {}\n", "Body"))
-        // }
-    // } else {
-        // // ToDo: print Body
-        // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Body", req.Body))
-    // }
+    fmt.Printf("--->> %20s", "Body\n")
+    if req.Body == http.NoBody {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: {}\n", "Body"))
+        }
+    } else {
+        // ToDo: print Body
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Body", req.Body))
+    }
     
 
-    // fmt.Printf("--->> %20s", "GetBody()\n")
-    // if req.GetBody == nil {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: <nil>\n", "GetBody"))
-        // }
-    // } else {
-        // // ToDo: print GetBody
-        // fmt.Printf("%s", fmt.Sprintf("%30s: present (%v)\n", "GetBody", req.GetBody))
-    // }
+    fmt.Printf("--->> %20s", "GetBody()\n")
+    if req.GetBody == nil {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: <nil>\n", "GetBody"))
+        }
+    } else {
+        // ToDo: print GetBody
+        fmt.Printf("%s", fmt.Sprintf("%30s: present (%v)\n", "GetBody", req.GetBody))
+    }
 
 
-    // fmt.Printf("--->> %20s", "ContentLength\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %d byte(s)\n", "ContentLength", req.ContentLength))
+    fmt.Printf("--->> %20s", "ContentLength\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %d byte(s)\n", "ContentLength", req.ContentLength))
     
 
-    // fmt.Printf("--->> %20s", "TransferEncoding\n")
-    // if len(req.TransferEncoding) == 0 {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "TransferEncoding"))
-        // }
-    // } else {
-        // fmt.Printf("%s", fmt.Sprintf("%30s:\n", "TransferEncoding"))
-        // for value := range req.TransferEncoding {
-            // fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", value))
-        // }
-    // }
+    fmt.Printf("--->> %20s", "TransferEncoding\n")
+    if len(req.TransferEncoding) == 0 {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "TransferEncoding"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s:\n", "TransferEncoding"))
+        for value := range req.TransferEncoding {
+            fmt.Printf("%s", fmt.Sprintf("%30s  - %v\n", "", value))
+        }
+    }
 
     
-    // fmt.Printf("--->> %20s", "Close\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Close", req.Close))
+    fmt.Printf("--->> %20s", "Close\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Close", req.Close))
 
 
-    // fmt.Printf("--->> %20s", "Host\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Host", req.Host))
+    fmt.Printf("--->> %20s", "Host\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Host", req.Host))
 
 
-    // // Allocate 32,5 MB for parsing the request MultipartForm
-    // req.ParseMultipartForm(32<<20 + 512)
-    // // ParseMultipartForm() includes a call of ParseForm()
+    // Allocate 32,5 MB for parsing the request MultipartForm
+    req.ParseMultipartForm(32<<20 + 512)
+    // ParseMultipartForm() includes a call of ParseForm()
     
-    // fmt.Printf("--->> %20s", "Form\n")
-    // if len(req.Form) == 0 {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "Form"))
-        // }
-    // } else {
-        // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Form", req.Form))
-    // }
+    fmt.Printf("--->> %20s", "Form\n")
+    if len(req.Form) == 0 {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "Form"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Form", req.Form))
+    }
     
 
-    // fmt.Printf("--->> %20s", "PostForm\n")
-    // if len(req.PostForm) == 0 {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "PostForm"))
-        // }
-    // } else {
-        // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "PostForm", req.PostForm))
-    // }
-    
-    
-    // fmt.Printf("--->> %20s", "MultipartForm\n")
-    // if (req.MultipartForm == nil) {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: <nil>\n", "MultipartForm"))
-        // }
-    // } else {
-        // if len(req.MultipartForm.Value) == 0 {
-            // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                // fmt.Printf("%s", fmt.Sprintf("%30s: map[]\n", "MultipartForm.Value"))
-            // }
-        // } else {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "MultipartForm.Value", req.MultipartForm.Value))
-        // }
-        // if len(req.MultipartForm.File) == 0 {
-            // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                // fmt.Printf("%s", fmt.Sprintf("%30s: map[]\n", "MultipartForm.File"))
-            // }
-        // } else {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "MultipartForm.File", req.MultipartForm.File))
-        // }
-    // }
+    fmt.Printf("--->> %20s", "PostForm\n")
+    if len(req.PostForm) == 0 {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "PostForm"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "PostForm", req.PostForm))
+    }
     
     
-    // fmt.Printf("--->> %20s", "Trailer\n")
-    // if (len(req.Trailer) == 0) {
-        // if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s: map[]\n", "Trailer"))
-        // }
-    // } else {
-        // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Trailer", req.Trailer))
-    // }
+    fmt.Printf("--->> %20s", "MultipartForm\n")
+    if (req.MultipartForm == nil) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: <nil>\n", "MultipartForm"))
+        }
+    } else {
+        if len(req.MultipartForm.Value) == 0 {
+            if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+                fmt.Printf("%s", fmt.Sprintf("%30s: map[]\n", "MultipartForm.Value"))
+            }
+        } else {
+            fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "MultipartForm.Value", req.MultipartForm.Value))
+        }
+        if len(req.MultipartForm.File) == 0 {
+            if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+                fmt.Printf("%s", fmt.Sprintf("%30s: map[]\n", "MultipartForm.File"))
+            }
+        } else {
+            fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "MultipartForm.File", req.MultipartForm.File))
+        }
+    }
+    
+    
+    fmt.Printf("--->> %20s", "Trailer\n")
+    if (len(req.Trailer) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: map[]\n", "Trailer"))
+        }
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Trailer", req.Trailer))
+    }
 
 
-    // fmt.Printf("--->> %20s", "RemoteAddr\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "RemoteAddr", req.RemoteAddr))
+    fmt.Printf("--->> %20s", "RemoteAddr\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "RemoteAddr", req.RemoteAddr))
 
 
-    // fmt.Printf("--->> %20s", "RequestURI\n")
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "RequestURI", req.RequestURI))
+    fmt.Printf("--->> %20s", "RequestURI\n")
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "RequestURI", req.RequestURI))
 
     if (logLevel & SFLOGGER_PRINT_TLS_INFO != 0) {
         fmt.Printf("--->> %20s", "TLS\n")
@@ -376,34 +376,39 @@ func printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
     fmt.Printf("%s", fmt.Sprintf("%30s  %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
     
     
-    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Raw")))
-    logRaw(cert.Raw)
     
+    if (logLevel & SFLOGGER_PRINT_RAW != 0) {
+      fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Raw")))
+      logRaw(cert.Raw)      
+      
+      fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawTBSCertificate")))
+      logRaw(cert.RawTBSCertificate)
+      
+      if (logLevel & SFLOGGER_PRINT_TLS_PUBLIC_KEY != 0) {
+          fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawSubjectPublicKeyInfo")))
+          logRaw(cert.RawSubjectPublicKeyInfo)
+      }
+      
+      fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawSubject")))
+      logRaw(cert.RawSubject)
+      
+      fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawIssuer")))
+      logRaw(cert.RawIssuer)
+      
+      fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Signature (raw)")))
+      logRaw(cert.Signature)
+    }
     
-    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawTBSCertificate")))
-    logRaw(cert.RawTBSCertificate)
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawSubjectPublicKeyInfo")))
-    logRaw(cert.RawSubjectPublicKeyInfo)
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawSubject")))
-    logRaw(cert.RawSubject)
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawIssuer")))
-    logRaw(cert.RawIssuer)
-    
-    fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Signature")))
-    logRaw(cert.Signature)
-    
-    // fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Signature", cert.Signature))
+    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Signature", cert.Signature))
     
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.SignatureAlgorithm", cert.SignatureAlgorithm))
     
     
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.PublicKeyAlgorithm", cert.PublicKeyAlgorithm))
     
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v of type %T\n", "cert.PublicKey", cert.PublicKey, cert.PublicKey))
-
+    if (logLevel & SFLOGGER_PRINT_TLS_PUBLIC_KEY != 0) {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v of type %T\n", "cert.PublicKey", cert.PublicKey, cert.PublicKey))
+    }
     
     fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "cert.Version", cert.Version))
     
