@@ -284,25 +284,31 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
         
         fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.VerifiedChains", req.TLS.VerifiedChains))
         
-        // if (len(req.TLS.VerifiedChains) > 0) {
-            // fmt.Printf("%s", fmt.Sprintf("%30s  TLS.VerifiedChains:\n", "##############################"))
-            // fmt.Printf("There is(are) %d VerifiedChain(s)\n", len(req.TLS.VerifiedChains))
-            // for verifiedChainIndex := range req.TLS.VerifiedChains {
-                // fmt.Printf("There is(are) %d Certificate(s) in the chain #%d\n", len(req.TLS.VerifiedChains[verifiedChainIndex]), verifiedChainIndex)
-                // for certIndex := range req.TLS.VerifiedChains[verifiedChainIndex] {
+        if (len(req.TLS.VerifiedChains) > 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s  TLS.VerifiedChains:\n", "##############################"))
+            fmt.Printf("There is(are) %d VerifiedChain(s)\n", len(req.TLS.VerifiedChains))
+            for verifiedChainIndex := range req.TLS.VerifiedChains {
+                fmt.Printf("There is(are) %d Certificate(s) in the chain #%d\n", len(req.TLS.VerifiedChains[verifiedChainIndex]), verifiedChainIndex)
+                for certIndex := range req.TLS.VerifiedChains[verifiedChainIndex] {
                     // fmt.Printf("Current cert = %v\n", req.TLS.VerifiedChains[verifiedChainIndex][certIndex])
-                    // printCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], fmt.Sprintf("TLS.VerifiedChains[%d]:", certIndex), logLevel)
-                // }
-            // }
-            // fmt.Printf("%s", fmt.Sprintf("%30s  End of TLS.VerifiedChains\n", "##############################"))
+                    // fmt.Printf("verifiedChainIndex = %d, certIndex = %d\n", verifiedChainIndex, certIndex)
+                    
+                    printCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], fmt.Sprintf("TLS.VerifiedChains[%d]:", certIndex), logLevel)
+                }
+            }
+            fmt.Printf("%s", fmt.Sprintf("%30s  End of TLS.VerifiedChains\n", "##############################"))
             
-        // } else {
-            // fmt.Printf("%s", fmt.Sprintf("%30s  TLS.VerifiedChains: []\n", "##############################"))
-        // }
+        } else {
+            if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+                fmt.Printf("%s", fmt.Sprintf("%30s  TLS.VerifiedChains: []\n", "##############################"))
+            } 
+        }
 
 
         if (len(req.TLS.SignedCertificateTimestamps) == 0) {
-            fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.SignedCertificateTimestamps", req.TLS.SignedCertificateTimestamps))
+            if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+                fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "TLS.SignedCertificateTimestamps"))
+            }            
         } else {
             fmt.Printf("%s", fmt.Sprintf("%30s:\n", "TLS.SignedCertificateTimestamps"))
             for _, s := range req.TLS.SignedCertificateTimestamps {
@@ -310,9 +316,22 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
             }
         }
 
-        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.OCSPResponse", req.TLS.OCSPResponse))
         
-        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.TLSUnique", req.TLS.TLSUnique))
+        if (len(req.TLS.OCSPResponse) == 0) {
+            if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+                fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "TLS.OCSPResponse"))
+            }            
+        } else {
+            fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.OCSPResponse", req.TLS.OCSPResponse))
+        }
+        
+        if (len(req.TLS.TLSUnique) == 0) {
+            if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+                fmt.Printf("%s", fmt.Sprintf("%30s: []\n", "TLS.TLSUnique"))
+            }            
+        } else {
+            fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "TLS.TLSUnique", req.TLS.TLSUnique))
+        }
     }
 
 
@@ -332,11 +351,22 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 
 
     fmt.Printf("--->> %20s", "Cancel\n")
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Cancel", req.Cancel))
+    if (req.Cancel == nil) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: <nil>\n", "TLS.Cancel"))
+        }            
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Cancel", req.Cancel))
+    }
 
     fmt.Printf("--->> %20s", "Response\n")
-    fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Response", req.Response))
-
+    if (req.Response == nil) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            fmt.Printf("%s", fmt.Sprintf("%30s: <nil>\n", "TLS.Response"))
+        }            
+    } else {
+        fmt.Printf("%s", fmt.Sprintf("%30s: %v\n", "Response", req.Response))
+    }
 
     forward = true
     return forward
@@ -348,6 +378,7 @@ func printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
     
     fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.Raw")))
     logRaw(cert.Raw)
+    
     
     fmt.Printf("%s", fmt.Sprintf("%30s:\n", fmt.Sprintf("cert.RawTBSCertificate")))
     logRaw(cert.RawTBSCertificate)
@@ -644,24 +675,25 @@ func logRaw(data []byte) {
     
     // Last line has 1-31 symbol(s)
     // Left indentation
-    fmt.Printf("%s", fmt.Sprintf("%30s %d symbols ", "", len(data) - numLines * 32))
+    fmt.Printf("%s", fmt.Sprintf("%30s  ", ""))
 
     // If the last symbol is in the first column
     if (len(data) - numLines * 32 <= 16) {
         for j := 0; j < len(data) - numLines * 32; j++ {
             fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + j]))
         }
+    // }
     } else {
     // If the last symbol is in the second column
         for j := 0; j < 16; j++ {
             fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + j]))
         }
         fmt.Printf("%s", fmt.Sprintf("%s  ", ""))
-        for j := 0; j < len(data) - numLines * 32; j++ {
+        for j := 0; j < len(data) - numLines * 32 - 16; j++ {
             fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + 16 + j]))
         }
     }
     
     // Next line at the end of the raw output
-    fmt.Printf("%s", fmt.Sprintf("\n"))
+    fmt.Printf("%s", fmt.Sprintf("%s\n", ""))
 }
