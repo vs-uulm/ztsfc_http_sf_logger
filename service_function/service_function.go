@@ -10,6 +10,9 @@ import (
     "bytes"
     // "io"
     "io/ioutil"
+    "mime/multipart"
+    "bufio"
+    "log"
     
     "strconv"
     
@@ -217,7 +220,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
         
         // create a new request for parsing the body
         req2, _ := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
-        req2.Header = req.Header
+        req2.Header = reqa.Heder
         
         // Allocate 32,5 MB for parsing the req2uest MultipartForm
         req2.ParseMultipartForm(32<<20 + 512)
@@ -259,7 +262,39 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
                     fmt.Printf("%s", fmt.Sprintf("%-32s: map[]\n", "MultipartForm.File"))
                 }
             } else {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "MultipartForm.File", req2.MultipartForm.File))
+                for k, v := range req2.MultipartForm.File {
+                    fmt.Printf("%s", fmt.Sprintf("%-32s: \"%v\"\n", "MultipartForm.File", k))
+                    var fh multipart.FileHeader
+                    for _, fhp := range v {
+                        fh = *fhp
+                        fmt.Printf("  Filename = %v\n", fh.Filename)
+                        fmt.Printf("  Size     = %v\n", fh.Size)
+                        fmt.Printf("  Header   = \n")
+                        for hk, hvalues := range fh.Header {
+                            fmt.Printf("    MIMEHeader[%v] :\n", hk)
+                            for _, hv  := range hvalues {
+                                fmt.Printf("      - %v\n", hv)
+                            }
+                        }
+                        file, err := fh.Open()
+                        if err !=nil {
+                            fmt.Printf("Could not open the file \"%v\". Error: %v", k, err)
+                            return
+                        } else {
+                            fmt.Printf("    File \"%v\" content:\n", k)
+                            defer file.Close()
+                            
+                            scanner := bufio.NewScanner(file)
+                            for scanner.Scan() {
+                                fmt.Printf("      |%v\n",scanner.Text())
+                            }
+
+                            if err := scanner.Err(); err != nil {
+                                log.Fatal(err)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
