@@ -7,6 +7,9 @@ import (
     "crypto/tls"
     "crypto/x509"
     "crypto/x509/pkix"
+    "bytes"
+    // "io"
+    "io/ioutil"
     
     "strconv"
     
@@ -202,46 +205,61 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     
 
     if (logLevel & SFLOGGER_PRINT_FORMS != 0) {
-        // Allocate 32,5 MB for parsing the request MultipartForm
-        req.ParseMultipartForm(32<<20 + 512)
+
+        // Manually save the request body
+        body, err := ioutil.ReadAll(req.Body)
+        if err != nil {
+            fmt.Printf("[Router.ServeHTTP]: Can't manually read the request body: ", err)
+            return
+        }
+        
+        req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+        
+        // create a new request for parsing the body
+        req2, _ := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
+        req2.Header = req.Header
+        
+        // Allocate 32,5 MB for parsing the req2uest MultipartForm
+        req2.ParseMultipartForm(32<<20 + 512)
+        // req2.ParseForm()
         // ParseMultipartForm() includes a call of ParseForm()
         
-        if len(req.Form) == 0 {
+        if len(req2.Form) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                 fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "Form"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Form", req.Form))
+            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Form", req2.Form))
         }
         
 
-        if len(req.PostForm) == 0 {
+        if len(req2.PostForm) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                 fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "PostForm"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "PostForm", req.PostForm))
+            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "PostForm", req2.PostForm))
         }
         
         
-        if (req.MultipartForm == nil) {
+        if (req2.MultipartForm == nil) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                 fmt.Printf("%s", fmt.Sprintf("%-32s: <nil>\n", "MultipartForm"))
             }
         } else {
-            if len(req.MultipartForm.Value) == 0 {
+            if len(req2.MultipartForm.Value) == 0 {
                 if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                     fmt.Printf("%s", fmt.Sprintf("%-32s: map[]\n", "MultipartForm.Value"))
                 }
             } else {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "MultipartForm.Value", req.MultipartForm.Value))
+                fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "MultipartForm.Value", req2.MultipartForm.Value))
             }
-            if len(req.MultipartForm.File) == 0 {
+            if len(req2.MultipartForm.File) == 0 {
                 if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                     fmt.Printf("%s", fmt.Sprintf("%-32s: map[]\n", "MultipartForm.File"))
                 }
             } else {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "MultipartForm.File", req.MultipartForm.File))
+                fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "MultipartForm.File", req2.MultipartForm.File))
             }
         }
     }
@@ -259,7 +277,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 
     if (logLevel & SFLOGGER_PRINT_TLS_MAIN_INFO != 0) {
         if (req.TLS.Version >=769) && (req.TLS.Version <= 772) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s:  1.%d\n", "TLS.Version", req.TLS.Version-769))
+            fmt.Printf("%s", fmt.Sprintf("%-32s: 1.%d\n", "TLS.Version", req.TLS.Version-769))
         } else {
             fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.Version", "WRONG VALUE!"))
         }

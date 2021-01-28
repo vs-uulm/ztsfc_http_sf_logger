@@ -221,7 +221,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
     if !forward {
         return
     }
-
+    
     // ToDo: add extracting of the next hop address from the list of IPs
 
     // Read the first value of "Sfp" field (required for service HTTPZT infrastructure) of the http header 
