@@ -5,14 +5,16 @@ import (
     "log"
     "flag"
     "net/http"
-    env "local.com/leobrada/ztsfc_http_sf_logger/env"
-    router "local.com/leobrada/ztsfc_http_sf_logger/router"
+
+    env              "local.com/leobrada/ztsfc_http_sf_logger/env"
+    router           "local.com/leobrada/ztsfc_http_sf_logger/router"
     service_function "local.com/leobrada/ztsfc_http_sf_logger/service_function"
 )
 
 var (
     conf_file_path = flag.String("c", "./conf.yml", "Path to user defined yml config file")
-    log_level = flag.Int("l", 0, "Log level")
+    sf_logger_dest = flag.Bool("log-to-file", false, "Redirect the logger output to a file")
+    self_log_level = flag.Int("l", 0, "Log level")
 )
 
 func init() {
@@ -26,9 +28,11 @@ func init() {
 
 func main() {
     // Create Zero Trust Service Function
-    sf_dummy := service_function.NewServiceFunction()
-
-    router, err := router.NewRouter(sf_dummy, *log_level)
+    sf_logger := service_function.NewServiceFunction()
+    
+    sf_logger.SetOptions(*sf_logger_dest)
+    
+    router, err := router.NewRouter(sf_logger, *self_log_level)
     if err != nil {
         log.Panicf("%v\n", err)
     }

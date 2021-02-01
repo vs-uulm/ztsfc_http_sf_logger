@@ -15,7 +15,7 @@ type LogWriter struct {
     buffer []byte
     position int
     channel chan []byte
-    saveBufferEveryNSeconds time.Duration 
+    saveBufferEveryNSeconds time.Duration
 }
 
 // Creates and return a new LogWriter structure
@@ -69,6 +69,7 @@ func (lw *LogWriter) Save() {
     // Save only if buffer is not empty 
     if lw.position != 0 {
     
+        
         logFilePath := lw.getLogFilePath()
         
         // Open the log file

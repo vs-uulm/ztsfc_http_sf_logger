@@ -54,11 +54,13 @@ type ServiceFunctionLogger struct {
     logWriter *logwriter.LogWriter
     logChannel chan []byte
     logLevel int
+    logToFile bool
 }
 
 func NewServiceFunction() ServiceFunctionLogger {
     sf := new(ServiceFunctionLogger)
     sf.name = "logger"
+    sf.logToFile = false
 
     // Create a logging channel
     sf.logChannel = make(chan []byte, 256)
@@ -69,10 +71,14 @@ func NewServiceFunction() ServiceFunctionLogger {
     // Run main loop of logWriter
     go sf.logWriter.Work()
 
+    return *sf
+}
+
+func (sf *ServiceFunctionLogger) SetOptions(_logToFile bool) {
+    sf.logToFile = _logToFile
     sf.Log(ALL, "============================================================\n")
     sf.Log(ALL, fmt.Sprintf("A service function \"%s\" has been created\n", sf.name))
 
-    return *sf
 }
 
 func getLogFilePath() string {
@@ -93,15 +99,20 @@ func (sf *ServiceFunctionLogger) Log (logLevel int, messages ...string) {
     if logLevel < sf.logLevel {
         return
     }
-
+    
     // Creates a comma-separated string out of the incoming slice of strings
     s := sf.logWriter.GetLogTimeStamp()
     for _, message := range messages {
         s = s + "," + message
     }
-
-    // Send the resulting string to the logging channel
-    sf.logChannel <- []byte(s)
+    
+    if sf.logToFile {
+        // Send the resulting string to the logging channel
+        sf.logChannel <- []byte(s)
+    } else {
+        // Print the resulting string to the screen
+        fmt.Print(s)
+    }
 }
 
 
@@ -109,8 +120,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     var logLevel uint32
     
     LoggerHeaderName := "Sfloggerlevel"
-    // fmt.Printf("req.Header[LoggerHeaderName] = %v\n", req.Header[LoggerHeaderName])
-        
+    // fmt.Printf("req.Header[LoggerHeaderName] = %v\n", req.Header[LoggerHeaderName])      
     logLevelString, ok := req.Header[LoggerHeaderName]
     if ok {
         req.Header.Del(LoggerHeaderName)
@@ -130,55 +140,55 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     if (logLevel & SFLOGGER_REGISTER_PACKETS_ONLY != 0) {
         addr, ok := req.Header["X-Forwarded-For"]
         if !ok {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: from %s to %s%s\n", "HTTP packet", req.RemoteAddr, req.Host, req.URL))
+            sf.Log(ALL, fmt.Sprintf("%-32s: from %s to %s%s\n", "HTTP packet", req.RemoteAddr, req.Host, req.URL))
         } else {
             if (len(addr) > 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: from %s through %s to %s%s\n", "HTTP packet", addr[0], req.RemoteAddr, req.Host, req.URL))
+                sf.Log(ALL, fmt.Sprintf("%-32s: from %s through %s to %s%s\n", "HTTP packet", addr[0], req.RemoteAddr, req.Host, req.URL))
             } else {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: from %s to %s%s\n", "HTTP packet", req.RemoteAddr, req.Host, req.URL))
+                sf.Log(ALL, fmt.Sprintf("%-32s: from %s to %s%s\n", "HTTP packet", req.RemoteAddr, req.Host, req.URL))
             }
-        }        
+        }
         forward = true
         return forward
     } 
-    
-    fmt.Printf("%s", fmt.Sprintf("%s\n", "======================= HTTP request ======================="))
-    
+
+    sf.Log(ALL, fmt.Sprintf("%s\n", "======================= HTTP request ======================="))
+
     if (logLevel & SFLOGGER_PRINT_GENERAL_INFO != 0) {
         // sf.Log(ALL, fmt.Sprintf("%-32s: %s\n", "Method", req.Method))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %s\n", "Method", req.Method))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %s\n", "URL", req.URL))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %s\n", "Proto", req.Proto))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %d.%d\n", "Protocol Version", req.ProtoMajor, req.ProtoMinor))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %d byte(s)\n", "ContentLength", req.ContentLength))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "RemoteAddr", req.RemoteAddr))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "RequestURI", req.RequestURI))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %s\n", "Method", req.Method))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %s\n", "URL", req.URL))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %s\n", "Proto", req.Proto))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %d.%d\n", "Protocol Version", req.ProtoMajor, req.ProtoMinor))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %d byte(s)\n", "ContentLength", req.ContentLength))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "RemoteAddr", req.RemoteAddr))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "RequestURI", req.RequestURI))
         
         if len(req.TransferEncoding) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "TransferEncoding"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "TransferEncoding"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "TransferEncoding"))
+            sf.Log(ALL, fmt.Sprintf("%-32s:\n", "TransferEncoding"))
             for value := range req.TransferEncoding {
-                fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", value))
+                sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", value))
             }
         }    
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Close", req.Close))
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Host", req.Host))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Close", req.Close))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Host", req.Host))
 
         if (req.Cancel == nil) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: <nil>\n", "TLS.Cancel"))
-            }            
+                sf.Log(ALL, fmt.Sprintf("%-32s: <nil>\n", "TLS.Cancel"))
+            }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Cancel", req.Cancel))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Cancel", req.Cancel))
         }
     }
     
     if (logLevel & SFLOGGER_PRINT_HEADER_FIELDS != 0) {
         for key, value := range req.Header {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Header." + key, value))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Header." + key, value))
         }
     }
      
@@ -186,21 +196,21 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     if (logLevel & SFLOGGER_PRINT_BODY != 0) {
         if req.Body == http.NoBody {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: {}\n", "Body"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: {}\n", "Body"))
             }
         } else {
             // ToDo: print Body
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Body", req.Body))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Body", req.Body))
         }
         
 
         if req.GetBody == nil {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: <nil>\n", "GetBody"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: <nil>\n", "GetBody"))
             }
         } else {
             // ToDo: print GetBody
-            fmt.Printf("%s", fmt.Sprintf("%-32s: present (%v)\n", "GetBody", req.GetBody))
+            sf.Log(ALL, fmt.Sprintf("%-32s: present (%v)\n", "GetBody", req.GetBody))
         }
     }
 
@@ -220,7 +230,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
         
         // create a new request for parsing the body
         req2, _ := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
-        req2.Header = reqa.Heder
+        req2.Header = req.Header
         
         // Allocate 32,5 MB for parsing the req2uest MultipartForm
         req2.ParseMultipartForm(32<<20 + 512)
@@ -229,41 +239,41 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
         
         if len(req2.Form) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "Form"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "Form"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Form", req2.Form))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Form", req2.Form))
         }
         
 
         if len(req2.PostForm) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "PostForm"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "PostForm"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "PostForm", req2.PostForm))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "PostForm", req2.PostForm))
         }
         
         
         if (req2.MultipartForm == nil) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: <nil>\n", "MultipartForm"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: <nil>\n", "MultipartForm"))
             }
         } else {
             if len(req2.MultipartForm.Value) == 0 {
                 if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                    fmt.Printf("%s", fmt.Sprintf("%-32s: map[]\n", "MultipartForm.Value"))
+                    sf.Log(ALL, fmt.Sprintf("%-32s: map[]\n", "MultipartForm.Value"))
                 }
             } else {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "MultipartForm.Value", req2.MultipartForm.Value))
+                sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "MultipartForm.Value", req2.MultipartForm.Value))
             }
             if len(req2.MultipartForm.File) == 0 {
                 if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                    fmt.Printf("%s", fmt.Sprintf("%-32s: map[]\n", "MultipartForm.File"))
+                    sf.Log(ALL, fmt.Sprintf("%-32s: map[]\n", "MultipartForm.File"))
                 }
             } else {
                 for k, v := range req2.MultipartForm.File {
-                    fmt.Printf("%s", fmt.Sprintf("%-32s: \"%v\"\n", "MultipartForm.File", k))
+                    sf.Log(ALL, fmt.Sprintf("%-32s: \"%v\"\n", "MultipartForm.File", k))
                     var fh multipart.FileHeader
                     for _, fhp := range v {
                         fh = *fhp
@@ -302,88 +312,88 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     if (logLevel & SFLOGGER_PRINT_TRAILERS != 0) {    
         if (len(req.Trailer) == 0) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: map[]\n", "Trailer"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: map[]\n", "Trailer"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Trailer", req.Trailer))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Trailer", req.Trailer))
         }
     }
 
 
     if (logLevel & SFLOGGER_PRINT_TLS_MAIN_INFO != 0) {
         if (req.TLS.Version >=769) && (req.TLS.Version <= 772) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: 1.%d\n", "TLS.Version", req.TLS.Version-769))
+            sf.Log(ALL, fmt.Sprintf("%-32s: 1.%d\n", "TLS.Version", req.TLS.Version-769))
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.Version", "WRONG VALUE!"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.Version", "WRONG VALUE!"))
         }
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.HandshakeComplete", req.TLS.HandshakeComplete))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.HandshakeComplete", req.TLS.HandshakeComplete))
         
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.DidResume", req.TLS.DidResume))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.DidResume", req.TLS.DidResume))
         
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.CipherSuite", tls.CipherSuiteName(req.TLS.CipherSuite)))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.CipherSuite", tls.CipherSuiteName(req.TLS.CipherSuite)))
         
         if (len(req.TLS.NegotiatedProtocol) == 0) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: \"\"\n", "req.TLS.NegotiatedProtocol"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: \"\"\n", "req.TLS.NegotiatedProtocol"))
             }
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.NegotiatedProtocol", req.TLS.NegotiatedProtocol))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.NegotiatedProtocol", req.TLS.NegotiatedProtocol))
         }        
         
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.NegotiatedProtocolIsMutual", req.TLS.NegotiatedProtocolIsMutual))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.NegotiatedProtocolIsMutual", req.TLS.NegotiatedProtocolIsMutual))
         
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.ServerName", req.TLS.ServerName))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.ServerName", req.TLS.ServerName))
         
         
         
         if (len(req.TLS.SignedCertificateTimestamps) == 0) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "TLS.SignedCertificateTimestamps"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "TLS.SignedCertificateTimestamps"))
             }            
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "TLS.SignedCertificateTimestamps"))
+            sf.Log(ALL, fmt.Sprintf("%-32s:\n", "TLS.SignedCertificateTimestamps"))
             for _, s := range req.TLS.SignedCertificateTimestamps {
-                fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", s))
+                sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", s))
             }
         }
 
         
         if (len(req.TLS.OCSPResponse) == 0) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "TLS.OCSPResponse"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "TLS.OCSPResponse"))
             }            
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.OCSPResponse", req.TLS.OCSPResponse))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.OCSPResponse", req.TLS.OCSPResponse))
         }
         
         if (len(req.TLS.TLSUnique) == 0) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "TLS.TLSUnique"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "TLS.TLSUnique"))
             }            
         } else {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "TLS.TLSUnique", req.TLS.TLSUnique))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "TLS.TLSUnique", req.TLS.TLSUnique))
         }
     }
     
     
     if (logLevel & SFLOGGER_PRINT_TLS_CERTIFICATES != 0) {
         for i := range req.TLS.PeerCertificates {
-            printCertInfo(req.TLS.PeerCertificates[i], fmt.Sprintf("TLS.PeerCertificates[%d]", i), logLevel)
+            sf.printCertInfo(req.TLS.PeerCertificates[i], fmt.Sprintf("TLS.PeerCertificates[%d]", i), logLevel)
         }
         
         
         if (len(req.TLS.VerifiedChains) > 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  TLS.VerifiedChains:\n", "##############################"))
+            sf.Log(ALL, fmt.Sprintf("%-32s  TLS.VerifiedChains:\n", "##############################"))
             for verifiedChainIndex := range req.TLS.VerifiedChains {
                 for certIndex := range req.TLS.VerifiedChains[verifiedChainIndex] {
-                    printCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], fmt.Sprintf("TLS.VerifiedChains[%d]:", certIndex), logLevel)
+                    sf.printCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], fmt.Sprintf("TLS.VerifiedChains[%d]:", certIndex), logLevel)
                 }
             }
-            fmt.Printf("%s", fmt.Sprintf("%-32s  End of TLS.VerifiedChains\n", "##############################"))
+            sf.Log(ALL, fmt.Sprintf("%-32s  End of TLS.VerifiedChains\n", "##############################"))
             
         } else {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s  TLS.VerifiedChains: []\n", "##############################"))
+                sf.Log(ALL, fmt.Sprintf("%-32s  TLS.VerifiedChains: []\n", "##############################"))
             } 
         }
     }
@@ -393,11 +403,11 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     if (logLevel & SFLOGGER_PRINT_REDIRECTED_RESPONSE != 0) {
         if (req.Response == nil) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-                fmt.Printf("%s", fmt.Sprintf("%-32s: <nil>\n", "TLS.Response"))
+                sf.Log(ALL, fmt.Sprintf("%-32s: <nil>\n", "TLS.Response"))
             }            
         } else {
             // ToDo: print Response
-            fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "Response", req.Response))
+            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Response", req.Response))
         }
     }
 
@@ -405,296 +415,296 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     return forward
 }
 
-func printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
-    fmt.Printf("%s", fmt.Sprintf("%-32s  %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+func (sf ServiceFunctionLogger) printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
+    sf.Log(ALL, fmt.Sprintf("%-32s  %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
     
     
     
     if (logLevel & SFLOGGER_PRINT_RAW != 0) {
-      fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.Raw")))
-      logRaw(cert.Raw)      
+      sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.Raw")))
+      sf.logRaw(cert.Raw)      
       
-      fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawTBSCertificate")))
-      logRaw(cert.RawTBSCertificate)
+      sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawTBSCertificate")))
+      sf.logRaw(cert.RawTBSCertificate)
       
       if (logLevel & SFLOGGER_PRINT_TLS_PUBLIC_KEY != 0) {
-          fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawSubjectPublicKeyInfo")))
-          logRaw(cert.RawSubjectPublicKeyInfo)
+          sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawSubjectPublicKeyInfo")))
+          sf.logRaw(cert.RawSubjectPublicKeyInfo)
       }
       
-      fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawSubject")))
-      logRaw(cert.RawSubject)
+      sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawSubject")))
+      sf.logRaw(cert.RawSubject)
       
-      fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawIssuer")))
-      logRaw(cert.RawIssuer)
+      sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.RawIssuer")))
+      sf.logRaw(cert.RawIssuer)
       
       if (logLevel & SFLOGGER_PRINT_TLS_CERT_SIGNATURE != 0) {
-          fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.Signature (raw)")))
-          logRaw(cert.Signature)
+          sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.Signature (raw)")))
+          sf.logRaw(cert.Signature)
       }
     }
     
     if (logLevel & SFLOGGER_PRINT_TLS_CERT_SIGNATURE != 0) {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.Signature", cert.Signature))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.Signature", cert.Signature))
     }
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.SignatureAlgorithm", cert.SignatureAlgorithm))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.SignatureAlgorithm", cert.SignatureAlgorithm))
     
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.PublicKeyAlgorithm", cert.PublicKeyAlgorithm))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.PublicKeyAlgorithm", cert.PublicKeyAlgorithm))
     
     if (logLevel & SFLOGGER_PRINT_TLS_PUBLIC_KEY != 0) {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v of type %T\n", "cert.PublicKey", cert.PublicKey, cert.PublicKey))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v of type %T\n", "cert.PublicKey", cert.PublicKey, cert.PublicKey))
     }
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.Version", cert.Version))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.Version", cert.Version))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.SerialNumber", cert.SerialNumber))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.SerialNumber", cert.SerialNumber))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.Issuer", cert.Issuer))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.Issuer", cert.Issuer))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.Subject", cert.Subject))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.Subject", cert.Subject))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.NotBefore", cert.NotBefore))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.NotBefore", cert.NotBefore))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.NotAfter", cert.NotAfter))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.NotAfter", cert.NotAfter))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.KeyUsage", cert.KeyUsage))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.KeyUsage", cert.KeyUsage))
     
     
     if (len(cert.Extensions) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.Extensions"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.Extensions"))
         }
     } else {
         for i := range cert.Extensions {
-            fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.Extensions[%d]",i)))
-            printExtensionInfo(cert.Extensions[i], logLevel)
+            sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.Extensions[%d]",i)))
+            sf.printExtensionInfo(cert.Extensions[i], logLevel)
         }
     }
     
     
     if (len(cert.ExtraExtensions) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.ExtraExtensions"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.ExtraExtensions"))
         }
     } else {
         for i := range cert.ExtraExtensions {
-            fmt.Printf("%s", fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.ExtraExtensions[%d]",i)))
-            printExtensionInfo(cert.ExtraExtensions[i], logLevel)
+            sf.Log(ALL, fmt.Sprintf("%-32s:\n", fmt.Sprintf("cert.ExtraExtensions[%d]",i)))
+            sf.printExtensionInfo(cert.ExtraExtensions[i], logLevel)
         }
     }
     
     
     if (len(cert.UnhandledCriticalExtensions) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.UnhandledCriticalExtensions"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.UnhandledCriticalExtensions"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "UnhandledCriticalExtensions", cert.UnhandledCriticalExtensions))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "UnhandledCriticalExtensions", cert.UnhandledCriticalExtensions))
     }
     
     
     if (len(cert.ExtKeyUsage) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.ExtKeyUsage"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.ExtKeyUsage"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "ExtKeyUsage", cert.ExtKeyUsage))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "ExtKeyUsage", cert.ExtKeyUsage))
     }
     
     
     if (len(cert.UnknownExtKeyUsage) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.UnknownExtKeyUsage"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.UnknownExtKeyUsage"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.UnknownExtKeyUsage", cert.UnknownExtKeyUsage))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.UnknownExtKeyUsage", cert.UnknownExtKeyUsage))
     }
     
    
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.BasicConstraintsValid", cert.BasicConstraintsValid))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.BasicConstraintsValid", cert.BasicConstraintsValid))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.IsCA", cert.IsCA))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.IsCA", cert.IsCA))
     
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.MaxPathLen", cert.MaxPathLen))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.MaxPathLen", cert.MaxPathLen))
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.MaxPathLenZero", cert.MaxPathLenZero))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.MaxPathLenZero", cert.MaxPathLenZero))
     
     
     
     if (len(cert.SubjectKeyId) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.SubjectKeyId"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.SubjectKeyId"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.SubjectKeyId", cert.SubjectKeyId))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.SubjectKeyId", cert.SubjectKeyId))
     }
     
     
     if (len(cert.AuthorityKeyId) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.AuthorityKeyId"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.AuthorityKeyId"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.AuthorityKeyId", cert.AuthorityKeyId))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.AuthorityKeyId", cert.AuthorityKeyId))
     }
     
     
     if (len(cert.OCSPServer) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.OCSPServer"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.OCSPServer"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "cert.OCSPServers"))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", "cert.OCSPServers"))
         for i := range cert.OCSPServer {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", cert.OCSPServer[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", cert.OCSPServer[i]))
         }
     }
     
     if (len(cert.IssuingCertificateURL) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.IssuingCertificateURL"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.IssuingCertificateURL"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "cert.OCSPServers"))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", "cert.OCSPServers"))
         for i := range cert.IssuingCertificateURL {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", cert.IssuingCertificateURL[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", cert.IssuingCertificateURL[i]))
         }
     }
     
     
     if (len(cert.DNSNames) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.DNSNames"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.DNSNames"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "cert.DNSNames"))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", "cert.DNSNames"))
         for i := range cert.DNSNames {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", cert.DNSNames[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", cert.DNSNames[i]))
         }
     }
     
     if (len(cert.EmailAddresses) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.EmailAddresses"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.EmailAddresses"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "cert.EmailAddresses"))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", "cert.EmailAddresses"))
         for i := range cert.EmailAddresses {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", cert.EmailAddresses[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", cert.EmailAddresses[i]))
         }
     }
     
     
     if (len(cert.IPAddresses) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.IPAddresses"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.IPAddresses"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "cert.IPAddresses"))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", "cert.IPAddresses"))
         for i := range cert.IPAddresses {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", cert.IPAddresses[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", cert.IPAddresses[i]))
         }
     }
     
     if (len(cert.URIs) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.URIs"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.URIs"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", "cert.URIs"))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", "cert.URIs"))
         for i := range cert.URIs {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", cert.URIs[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", cert.URIs[i]))
         }
     }
 
-    fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.PermittedDNSDomainsCritical", cert.PermittedDNSDomainsCritical))
+    sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.PermittedDNSDomainsCritical", cert.PermittedDNSDomainsCritical))
     
-    logSliceStrings(cert.PermittedDNSDomains, "cert.PermittedDNSDomains", logLevel)
+    sf.logSliceStrings(cert.PermittedDNSDomains, "cert.PermittedDNSDomains", logLevel)
     
-    logSliceStrings(cert.ExcludedDNSDomains, "cert.ExcludedDNSDomains", logLevel)
+    sf.logSliceStrings(cert.ExcludedDNSDomains, "cert.ExcludedDNSDomains", logLevel)
     
     if (len(cert.PermittedIPRanges) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.PermittedIPRanges"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.PermittedIPRanges"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.PermittedIPRanges", cert.PermittedIPRanges))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.PermittedIPRanges", cert.PermittedIPRanges))
     }
     
     
     if (len(cert.ExcludedIPRanges) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.ExcludedIPRanges"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.ExcludedIPRanges"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.ExcludedIPRanges", cert.ExcludedIPRanges))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.ExcludedIPRanges", cert.ExcludedIPRanges))
     }
    
 
-    logSliceStrings(cert.PermittedEmailAddresses, "cert.PermittedEmailAddresses", logLevel)
+    sf.logSliceStrings(cert.PermittedEmailAddresses, "cert.PermittedEmailAddresses", logLevel)
     
-    logSliceStrings(cert.ExcludedEmailAddresses, "cert.ExcludedEmailAddresses", logLevel)
+    sf.logSliceStrings(cert.ExcludedEmailAddresses, "cert.ExcludedEmailAddresses", logLevel)
     
-    logSliceStrings(cert.PermittedURIDomains, "cert.PermittedURIDomains", logLevel)
+    sf.logSliceStrings(cert.PermittedURIDomains, "cert.PermittedURIDomains", logLevel)
     
-    logSliceStrings(cert.ExcludedURIDomains, "cert.ExcludedURIDomains", logLevel)
+    sf.logSliceStrings(cert.ExcludedURIDomains, "cert.ExcludedURIDomains", logLevel)
     
     
-    logSliceStrings(cert.CRLDistributionPoints, "cert.CRLDistributionPoints", logLevel)
+    sf.logSliceStrings(cert.CRLDistributionPoints, "cert.CRLDistributionPoints", logLevel)
     
     if (len(cert.PolicyIdentifiers) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", "cert.PolicyIdentifiers"))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "cert.PolicyIdentifiers"))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s: %v\n", "cert.PolicyIdentifiers", cert.PolicyIdentifiers))
+        sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.PolicyIdentifiers", cert.PolicyIdentifiers))
     }
     
-    fmt.Printf("%s", fmt.Sprintf("%-32s  End of %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+    sf.Log(ALL, fmt.Sprintf("%-32s  End of %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
     return
 }
 
-func printExtensionInfo(ext pkix.Extension, logLevel uint32) {
-    fmt.Printf("%s", fmt.Sprintf("%-32s  Id:          %v\n", "", ext.Id))
-    fmt.Printf("%s", fmt.Sprintf("%-32s  Critical:    %v\n", "", ext.Critical))
-    fmt.Printf("%s", fmt.Sprintf("%-32s  Value:       %s\n", "", string(ext.Value)))    
+func (sf ServiceFunctionLogger) printExtensionInfo(ext pkix.Extension, logLevel uint32) {
+    sf.Log(ALL, fmt.Sprintf("%-32s  Id:          %v\n", "", ext.Id))
+    sf.Log(ALL, fmt.Sprintf("%-32s  Critical:    %v\n", "", ext.Critical))
+    sf.Log(ALL, fmt.Sprintf("%-32s  Value:       %s\n", "", string(ext.Value)))    
     if (logLevel & SFLOGGER_PRINT_RAW != 0) {
-        fmt.Printf("%s", fmt.Sprintf("%-32s  Value (raw): %v\n", "", ext.Value))    
+        sf.Log(ALL, fmt.Sprintf("%-32s  Value (raw): %v\n", "", ext.Value))    
     }
     return
 }
 
 
-func logSliceBytes(data []byte, name string, logLevel uint32) {
+func (sf ServiceFunctionLogger) logSliceBytes(data []byte, name string, logLevel uint32) {
     if (len(data) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", name))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", name))
         }
     } else {
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", name))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", name))
         for i := range data {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", data[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", data[i]))
         }
     }
 }
 
-func logSliceStrings(data []string, name string, logLevel uint32) {
+func (sf ServiceFunctionLogger) logSliceStrings(data []string, name string, logLevel uint32) {
     if (len(data) == 0) {
         if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
-            fmt.Printf("%s", fmt.Sprintf("%-32s: []\n", name))
+            sf.Log(ALL, fmt.Sprintf("%-32s: []\n", name))
         }
     } else {                                                                                                                                                                                                                                                                                                                                                  
-        fmt.Printf("%s", fmt.Sprintf("%-32s:\n", name))
+        sf.Log(ALL, fmt.Sprintf("%-32s:\n", name))
         for i := range data {
-            fmt.Printf("%s", fmt.Sprintf("%-32s  - %v\n", "", data[i]))
+            sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", data[i]))
         }
     }
 }
 
-func logRaw(data []byte) {
+func (sf ServiceFunctionLogger) logRaw(data []byte) {
     // Number of complete lines
     numLines := int(len(data) / 32)
     
@@ -702,42 +712,42 @@ func logRaw(data []byte) {
     for i := 0; i < numLines-1; i++ {
         
         // Left indentation
-        fmt.Printf("%s", fmt.Sprintf("%-32s  ", ""))
+        sf.Log(ALL, fmt.Sprintf("%-32s  ", ""))
         for j := 0; j < 16; j++ {
-            fmt.Printf("%s", fmt.Sprintf("%02X ", data[i * 32 + j]))
+            sf.Log(ALL, fmt.Sprintf("%02X ", data[i * 32 + j]))
         }
         
         // Space between two columns
-        fmt.Printf("%s", fmt.Sprintf("%s  ", ""))
+        sf.Log(ALL, fmt.Sprintf("%s  ", ""))
         for j := 0; j < 16; j++ {
-            fmt.Printf("%s", fmt.Sprintf("%02X ", data[i * 32 + 16 + j]))
+            sf.Log(ALL, fmt.Sprintf("%02X ", data[i * 32 + 16 + j]))
         }
         
         // Next line at the end
-        fmt.Printf("%s", fmt.Sprintf("\n"))
+        sf.Log(ALL, fmt.Sprintf("\n"))
     }
     
     // Last line has 1-31 symbol(s)
     // Left indentation
-    fmt.Printf("%s", fmt.Sprintf("%-32s  ", ""))
+    sf.Log(ALL, fmt.Sprintf("%-32s  ", ""))
 
     // If the last symbol is in the first column
     if (len(data) - numLines * 32 <= 16) {
         for j := 0; j < len(data) - numLines * 32; j++ {
-            fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + j]))
+            sf.Log(ALL, fmt.Sprintf("%02X ", data[numLines * 32 + j]))
         }
     // }
     } else {
     // If the last symbol is in the second column
         for j := 0; j < 16; j++ {
-            fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + j]))
+            sf.Log(ALL, fmt.Sprintf("%02X ", data[numLines * 32 + j]))
         }
-        fmt.Printf("%s", fmt.Sprintf("%s  ", ""))
+        sf.Log(ALL, fmt.Sprintf("%s  ", ""))
         for j := 0; j < len(data) - numLines * 32 - 16; j++ {
-            fmt.Printf("%s", fmt.Sprintf("%02X ", data[numLines * 32 + 16 + j]))
+            sf.Log(ALL, fmt.Sprintf("%02X ", data[numLines * 32 + 16 + j]))
         }
     }
     
     // Next line at the end of the raw output
-    fmt.Printf("%s", fmt.Sprintf("%s\n", ""))
+    sf.Log(ALL, fmt.Sprintf("%s\n", ""))
 }
