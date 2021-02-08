@@ -74,7 +74,7 @@ func NewServiceFunction() ServiceFunctionLogger {
 
 func (sf *ServiceFunctionLogger) SetOptions(_logToFile bool) {
     sf.logToFile = _logToFile
-    sf.Log(ALL, "============================================================\n")
+    sf.Log(BASIC, "============================================================\n")
     sf.Log(ALL, fmt.Sprintf("A service function \"%s\" has been created\n", sf.name))
 }
 
@@ -82,12 +82,12 @@ func getLogFilePath() string {
     t := time.Now()
 
     // Format time stamp
-    ts := fmt.Sprintf("sf-logger-%4d-%02d-%02d-%02d.log",
-                                 t.Year(),
-                                     t.Month(),
-                                          t.Day(),
-                                               t.Hour())
-    return ts
+    logFileName := fmt.Sprintf("sf-logger-%4d-%02d-%02d-%02d.log",
+                                          t.Year(),
+                                              t.Month(),
+                                                   t.Day(),
+                                                        t.Hour())
+    return logFileName
 }
 
 // The Log() function writes messages from a provided slice as comma-separated string
@@ -194,7 +194,14 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 
     if (logLevel & SFLOGGER_PRINT_HEADER_FIELDS != 0) {
         for key, value := range req.Header {
-            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Header." + key, value))
+            if key == "Cookie" {
+                sf.Log(ALL, fmt.Sprintf("%-32s:\n", "Header." + key))
+                for _, c := range value {
+                    sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", c))
+                }
+            } else {                
+                sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Header." + key, value))
+            }
         }
     }
      
@@ -229,7 +236,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
     //
 
     if (logLevel & SFLOGGER_PRINT_FORMS != 0) {
-    
+
         // Manually save the request body
         body, err := ioutil.ReadAll(req.Body)
         if err != nil {
@@ -441,13 +448,14 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 }
 
 func (sf ServiceFunctionLogger) printCertInfo(cert *x509.Certificate, title string, logLevel uint32) {
-    sf.Log(ALL, fmt.Sprintf("%-32s  %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+    
 
     //
     // SFLOGGER_PRINT_TLS_MAIN_INFO
     //
 
     if (logLevel & SFLOGGER_PRINT_TLS_MAIN_INFO != 0) {
+        sf.Log(ALL, fmt.Sprintf("%-32s  %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.SignatureAlgorithm", cert.SignatureAlgorithm))
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.PublicKeyAlgorithm", cert.PublicKeyAlgorithm))
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "cert.Version", cert.Version))    
@@ -689,7 +697,9 @@ func (sf ServiceFunctionLogger) printCertInfo(cert *x509.Certificate, title stri
         sf.Log(ALL, fmt.Sprintf("%-32s: %v of type %T\n", "cert.PublicKey", cert.PublicKey, cert.PublicKey))
     }
     
-    sf.Log(ALL, fmt.Sprintf("%-32s  End of %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+    if (logLevel & SFLOGGER_PRINT_TLS_MAIN_INFO != 0) {
+        sf.Log(ALL, fmt.Sprintf("%-32s  End of %s\n", "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", title))
+    }
     return
 }
 
