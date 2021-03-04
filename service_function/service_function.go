@@ -165,7 +165,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
         sf.Log(ALL, fmt.Sprintf("%-32s: %d byte(s)\n", "ContentLength", req.ContentLength))
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "RemoteAddr", req.RemoteAddr))
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "RequestURI", req.RequestURI))
-        
+
         if len(req.TransferEncoding) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                 sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "TransferEncoding"))
@@ -175,7 +175,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
             for value := range req.TransferEncoding {
                 sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", value))
             }
-        }    
+        }
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Close", req.Close))
         sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Host", req.Host))
 
@@ -187,24 +187,26 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
             sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Cancel", req.Cancel))
         }
     }
-    
+
     //
     // SFLOGGER_PRINT_HEADER_FIELDS
     //
 
     if (logLevel & SFLOGGER_PRINT_HEADER_FIELDS != 0) {
         for key, value := range req.Header {
-            if key == "Cookie" {
-                sf.Log(ALL, fmt.Sprintf("%-32s:\n", "Header." + key))
-                for _, c := range value {
-                    sf.Log(ALL, fmt.Sprintf("%-32s  - %v\n", "", c))
-                }
-            } else {                
+            if key != "Cookie" {
                 sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Header." + key, value))
             }
         }
+        
+        cookies := req.Cookies()
+        if (len(cookies) >= 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s:\n", "Header.Cookies"))
+            for _, c := range cookies {
+                sf.logCookie(c, logLevel)
+            }
+        }
     }
-     
 
     //
     // SFLOGGER_PRINT_BODY
@@ -216,10 +218,21 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
                 sf.Log(ALL, fmt.Sprintf("%-32s: {}\n", "Body"))
             }
         } else {
-            // ToDo: print Body
-            sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "Body", req.Body))
+            // Manually save the request body
+            body, err := ioutil.ReadAll(req.Body)
+            if err != nil {
+                fmt.Printf("[Router.ServeHTTP]: Can't manually read the request body: ", err)
+                return
+            }
+
+            req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+            // create a new request for parsing the body
+            req2, _ := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
+            req2.Header = req.Header
+
+            fmt.Printf("%-32s: %v of type %T\n", "body", string(body), string(body))
         }
-        
 
         if req.GetBody == nil {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
@@ -243,17 +256,17 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
             fmt.Printf("[Router.ServeHTTP]: Can't manually read the request body: ", err)
             return
         }
-        
+
         req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-        
+
         // create a new request for parsing the body
         req2, _ := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
         req2.Header = req.Header
-        
+
         // Allocate 32,5 MB for parsing the req2uest MultipartForm
         // ParseMultipartForm() includes a call of ParseForm()
         req2.ParseMultipartForm(32<<20 + 512)
-        
+
         if len(req2.Form) == 0 {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                 sf.Log(ALL, fmt.Sprintf("%-32s: []\n", "Form"))
@@ -270,8 +283,7 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
         } else {
             sf.Log(ALL, fmt.Sprintf("%-32s: %v\n", "PostForm", req2.PostForm))
         }
-        
-        
+
         if (req2.MultipartForm == nil) {
             if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
                 sf.Log(ALL, fmt.Sprintf("%-32s: <nil>\n", "MultipartForm"))
@@ -784,4 +796,74 @@ func (sf ServiceFunctionLogger) logRaw(data []byte) {
     
     // Next line at the end of the raw output
     sf.Log(ALL, fmt.Sprintf("%s\n", ""))
+}
+
+func (sf ServiceFunctionLogger) logCookie(c *http.Cookie, logLevel uint32) {
+    sf.Log(ALL, fmt.Sprintf("%-32s  - Name    : %v\n", "", c.Name))
+    sf.Log(ALL, fmt.Sprintf("%-32s    Value   : %v\n", "", c.Value))
+    
+    if (len(c.Path) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s    Path    : \"\"\n", ""))
+        }
+    } else {
+        sf.Log(ALL, fmt.Sprintf("%-32s    Path    : %v\n", "", c.Path))
+    }
+    
+    if (len(c.Domain) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s    Domain  : \"\"\n", ""))
+        }
+    } else {
+        sf.Log(ALL, fmt.Sprintf("%-32s    Domain  : %v\n", "", c.Domain))
+    }
+    
+    if c.Expires.IsZero() {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s    Expires : \"\"\n", ""))
+        }
+    } else {
+        sf.Log(ALL, fmt.Sprintf("%-32s    Expires : %v\n", "", c.Expires))
+        sf.Log(ALL, fmt.Sprintf("%-32s      (raw) : %v\n", "", c.RawExpires))
+    }
+    
+    if (c.MaxAge == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s    MaxAge  : \"\"\n", ""))
+        }
+    } else {
+        sf.Log(ALL, fmt.Sprintf("%-32s    MaxAge  : %v\n", "", c.MaxAge))
+    }
+    
+    sf.Log(ALL, fmt.Sprintf("%-32s    Secure  : %v\n", "", c.Secure))
+    sf.Log(ALL, fmt.Sprintf("%-32s    HttpOnly: %v\n", "", c.HttpOnly))
+    sf.Log(ALL, fmt.Sprintf("%-32s    SameSite: %v\n", "", getSamSiteModeInText(int(c.SameSite))))
+    
+    if (len(c.Raw) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s    Raw     : \"\"\n", ""))
+        }
+    } else {
+        sf.Log(ALL, fmt.Sprintf("%-32s    Raw     : %v\n", "", c.Raw))
+    }
+    
+    if (len(c.Unparsed) == 0) {
+        if (logLevel & SFLOGGER_PRINT_EMPTY_FIELDS != 0) {
+            sf.Log(ALL, fmt.Sprintf("%-32s    Raw     : []\n", ""))
+        }
+    } else {
+        for _, pair := range c.Unparsed {
+            sf.Log(ALL, fmt.Sprintf("%-32s              - %v\n", "", pair))
+        }
+    }
+}
+
+func getSamSiteModeInText(ss int) string {
+    switch ss {
+        case 0: return "SameSiteDefaultMode"
+        case 1: return "SameSiteLaxMode"
+        case 2: return "SameSiteStrictMode"
+        case 3: return "SameSiteNoneMode"
+        default: return "Unknown!"
+    }
 }
