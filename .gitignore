@@ -19,5 +19,5 @@ conf.yml
 # vendor/
 
 # Log files
-access.log
+*.log
 sf-logger*.log

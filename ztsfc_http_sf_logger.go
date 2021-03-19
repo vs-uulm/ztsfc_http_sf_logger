@@ -1,47 +1,78 @@
 package main
 
 import (
-    // "fmt"
-    "log"
-    "flag"
-    "net/http"
+	"flag"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-    env              "local.com/leobrada/ztsfc_http_sf_logger/env"
-    router           "local.com/leobrada/ztsfc_http_sf_logger/router"
-    service_function "local.com/leobrada/ztsfc_http_sf_logger/service_function"
+	env "local.com/leobrada/ztsfc_http_sf_logger/env"
+	logwriter "local.com/leobrada/ztsfc_http_sf_logger/logwriter"
+	router "local.com/leobrada/ztsfc_http_sf_logger/router"
+	service_function "local.com/leobrada/ztsfc_http_sf_logger/service_function"
 )
 
 var (
-    conf_file_path = flag.String("c", "./conf.yml", "Path to user defined yml config file")
-    sf_logger_dest = flag.Bool("log-to-file", false, "Redirect the logger output to a file")
-    self_log_level = flag.Int("l", 0, "Log level")
+	conf_file_path     string
+	log_file_path      string
+	log_level          string
+	http_log_file_path string
+	ifJSONformatter    bool
+
+	// An instance of logrus logger
+	lw *logwriter.LogWriter
 )
 
 func init() {
-    flag.Parse()
+	flag.StringVar(&log_file_path, "log-to", "./system.log", "Path to log file")
+	flag.StringVar(&http_log_file_path, "http-log-to", "./http.log", "Path to log file for incoming HTTP requests")
+	flag.StringVar(&conf_file_path, "conf", "./conf.yml", "Path to user defined yml config file")
+	flag.StringVar(&log_level, "log-level", "error", "Log level from the next set: debug, info, warning, error")
+	flag.BoolVar(&ifJSONformatter, "json", false, "Use JSON format for logging messages")
 
-    err := env.LoadConfig(*conf_file_path)
-    if err != nil {
-        log.Fatal(err)
-    }
+	// Operating input parameters
+	flag.Parse()
+
+	lw = logwriter.New(log_file_path, log_level, ifJSONformatter)
+	SetupCloseHandler(lw)
+
+	err := env.LoadConfig(conf_file_path, lw)
+	if err != nil {
+		lw.Logger.Fatalf("Fatal Error during loading logger configuration from %s: %v", conf_file_path, err)
+	} else {
+		lw.Logger.Debugf("Logger configuration is successfully loaded from %s", conf_file_path)
+	}
 }
 
 func main() {
-    // Create Zero Trust Service Function
-    sf_logger := service_function.NewServiceFunction()
-    
-    sf_logger.SetOptions(*sf_logger_dest)
-    
-    router, err := router.NewRouter(sf_logger, *self_log_level)
-    if err != nil {
-        log.Panicf("%v\n", err)
-    }
+	// Create Zero Trust Service Function
+	sf_logger := service_function.NewServiceFunction()
+	sf_logger.SetHttpLogFileName(http_log_file_path)
+	sf_logger.RunHttpLogger()
 
-    http.Handle("/", router)
+	router, err := router.NewRouter(sf_logger, lw)
+	if err != nil {
+		lw.Logger.Fatalf("Fatal error during new router creation: %v", err)
+	} else {
+		lw.Logger.Debug("New router is successfully created")
+	}
 
-    router.Log(1, "Listening on port", env.Config.Sf.Listen_addr)
-    err = router.ListenAndServeTLS()
-    if err != nil {
-        log.Fatal("[Router]: ListenAndServeTLS", err)
-    }
+	http.Handle("/", router)
+
+	err = router.ListenAndServeTLS()
+	if err != nil {
+		lw.Logger.Fatalf("ListenAndServeTLS Fatal Error: %v", err)
+	}
+}
+
+func SetupCloseHandler(lw *logwriter.LogWriter) {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		lw.Logger.Debug("- Ctrl+C pressed in Terminal. Terminating...")
+		lw.Terminate()
+		os.Exit(0)
+	}()
 }
