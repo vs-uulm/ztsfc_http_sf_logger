@@ -18,7 +18,7 @@ var (
 	log_file_path      string
 	log_level          string
 	http_log_file_path string
-	ifJSONformatter    bool
+	ifTextFormatter    bool
 
 	// An instance of logrus logger
 	lw *logwriter.LogWriter
@@ -29,12 +29,12 @@ func init() {
 	flag.StringVar(&http_log_file_path, "http-log-to", "./http.log", "Path to log file for incoming HTTP requests")
 	flag.StringVar(&conf_file_path, "conf", "./conf.yml", "Path to user defined yml config file")
 	flag.StringVar(&log_level, "log-level", "error", "Log level from the next set: debug, info, warning, error")
-	flag.BoolVar(&ifJSONformatter, "json", false, "Use JSON format for logging messages")
+	flag.BoolVar(&ifTextFormatter, "text", false, "Use text format instead of JSON for logging messages")
 
 	// Operating input parameters
 	flag.Parse()
 
-	lw = logwriter.New(log_file_path, log_level, ifJSONformatter)
+	lw = logwriter.New(log_file_path, log_level, ifTextFormatter)
 	SetupCloseHandler(lw)
 
 	err := env.LoadConfig(conf_file_path, lw)
