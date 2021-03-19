@@ -29,7 +29,7 @@ func init() {
 	flag.StringVar(&http_log_file_path, "http-log-to", "./http.log", "Path to log file for incoming HTTP requests")
 	flag.StringVar(&conf_file_path, "conf", "./conf.yml", "Path to user defined yml config file")
 	flag.StringVar(&log_level, "log-level", "error", "Log level from the next set: debug, info, warning, error")
-	flag.BoolVar(&ifTextFormatter, "text", false, "Use text format instead of JSON for logging messages")
+	flag.BoolVar(&ifTextFormatter, "text", false, "Use a text format instead of JSON to log messages")
 
 	// Operating input parameters
 	flag.Parse()

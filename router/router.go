@@ -38,8 +38,7 @@ type Router struct {
 	lw *logwriter.LogWriter
 }
 
-func NewRouter(_sf service_function.ServiceFunction,
-	_lw *logwriter.LogWriter) (*Router, error) {
+func NewRouter(_sf service_function.ServiceFunction, _lw *logwriter.LogWriter) (*Router, error) {
 	router := new(Router)
 	router.lw = _lw
 	router.sf = _sf
