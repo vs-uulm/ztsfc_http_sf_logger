@@ -81,11 +81,15 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 		if err != nil {
 			fmt.Println(err)
 		}
-		logLevel = uint32(u64)
+		if (u64 == 0) {
+			logLevel = SFLOGGER_REGISTER_PACKETS_ONLY
+		} else {
+			logLevel = uint32(u64)
+		}
 	} else {
 		logLevel = SFLOGGER_REGISTER_PACKETS_ONLY
 	}
-
+	
 	httpLogger := sf.lw.Logger.WithFields(logrus.Fields{
 		"Host":       req.Host,
 		"URL":        req.URL,
@@ -374,22 +378,24 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 	// // SFLOGGER_PRINT_TLS_CERTIFICATES
 	// //
 
-	httpLogger = httpLogger.WithFields(logrus.Fields{"TLS.PeerCertificates": req.TLS.PeerCertificates})
-	
-	// for i := range req.TLS.PeerCertificates {
-		// httpLogger = sf.addCertInfo(req.TLS.PeerCertificates[i], logLevel, httpLogger)
-	// }
-
-	if len(req.TLS.VerifiedChains) > 0 {
-		httpLogger = httpLogger.WithFields(logrus.Fields{"TLS.VerifiedChains": req.TLS.VerifiedChains})
-		// for verifiedChainIndex := range req.TLS.VerifiedChains {
-			// for certIndex := range req.TLS.VerifiedChains[verifiedChainIndex] {
-				// httpLogger = sf.addCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], logLevel, httpLogger)
-			// }
+	if logLevel&SFLOGGER_PRINT_TLS_CERTIFICATES != 0 {
+		httpLogger = httpLogger.WithFields(logrus.Fields{"TLS.PeerCertificates": req.TLS.PeerCertificates})
+		
+		// for i := range req.TLS.PeerCertificates {
+			// httpLogger = sf.addCertInfo(req.TLS.PeerCertificates[i], logLevel, httpLogger)
 		// }
-	} else {
-		if logLevel&SFLOGGER_PRINT_EMPTY_FIELDS != 0 {
-			httpLogger = httpLogger.WithFields(logrus.Fields{"TLS.VerifiedChains": ""})
+
+		if len(req.TLS.VerifiedChains) > 0 {
+			httpLogger = httpLogger.WithFields(logrus.Fields{"TLS.VerifiedChains": req.TLS.VerifiedChains})
+			// for verifiedChainIndex := range req.TLS.VerifiedChains {
+				// for certIndex := range req.TLS.VerifiedChains[verifiedChainIndex] {
+					// httpLogger = sf.addCertInfo(req.TLS.VerifiedChains[verifiedChainIndex][certIndex], logLevel, httpLogger)
+				// }
+			// }
+		} else {
+			if logLevel&SFLOGGER_PRINT_EMPTY_FIELDS != 0 {
+				httpLogger = httpLogger.WithFields(logrus.Fields{"TLS.VerifiedChains": ""})
+			}
 		}
 	}
 
