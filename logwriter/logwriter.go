@@ -56,7 +56,7 @@ func New(_log_file_path, _log_level string, _ifTextFormatter bool) *LogWriter {
 	default:
 		log.Fatal("Wrong log level value. Supported values are info, warning, error (default)")
 	}
-
+	
 	// Set a JSON log formatter if necessary
 	if _ifTextFormatter {
 		Log_writer.Logger.SetFormatter(&logrus.TextFormatter{})
