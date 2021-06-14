@@ -11,6 +11,8 @@ import (
 	logwriter "local.com/leobrada/ztsfc_http_sf_logger/logwriter"
 	router "local.com/leobrada/ztsfc_http_sf_logger/router"
 	service_function "local.com/leobrada/ztsfc_http_sf_logger/service_function"
+
+//    "github.com/pkg/profile"
 )
 
 var (
@@ -35,7 +37,7 @@ func init() {
 	flag.Parse()
 
 	lw = logwriter.New(log_file_path, log_level, ifTextFormatter)
-	SetupCloseHandler(lw)
+	//SetupCloseHandler(lw)
 
 	err := env.LoadConfig(conf_file_path, lw)
 	if err != nil {
@@ -46,6 +48,8 @@ func init() {
 }
 
 func main() {
+//    defer profile.Start(profile.CPUProfile, profile.ProfilePath(".")).Stop()
+
 	// Create Zero Trust Service Function
 	sf_logger := service_function.NewServiceFunction()
 	sf_logger.SetHttpLogFileName(http_log_file_path)

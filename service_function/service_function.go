@@ -84,12 +84,18 @@ func (sf ServiceFunctionLogger) ApplyFunction(w http.ResponseWriter, req *http.R
 		if (u64 == 0) {
 			logLevel = SFLOGGER_REGISTER_PACKETS_ONLY
 		} else {
+			//logLevel = uint32(u64)
 			logLevel = uint32(u64)
 		}
 	} else {
 		logLevel = SFLOGGER_REGISTER_PACKETS_ONLY
 	}
-	
+
+    logLevel = SFLOGGER_PRINT_GENERAL_INFO | SFLOGGER_PRINT_HEADER_FIELDS | SFLOGGER_PRINT_BODY |SFLOGGER_PRINT_FORMS | SFLOGGER_PRINT_FORMS_FILE_CONTENT | SFLOGGER_PRINT_TLS_MAIN_INFO |
+	    SFLOGGER_PRINT_TLS_CERTIFICATES | SFLOGGER_PRINT_TLS_PUBLIC_KEY | SFLOGGER_PRINT_TLS_CERT_SIGNATURE
+
+//    fmt.Printf("log level: %d\n", logLevel)
+
 	httpLogger := sf.lw.Logger.WithFields(logrus.Fields{
 		"Host":       req.Host,
 		"URL":        req.URL,

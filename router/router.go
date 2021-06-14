@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"time"
+    "strings"
 
 	env "local.com/leobrada/ztsfc_http_sf_logger/env"
 	logwriter "local.com/leobrada/ztsfc_http_sf_logger/logwriter"
@@ -54,7 +55,7 @@ func NewRouter(_sf service_function.ServiceFunction, _lw *logwriter.LogWriter) (
 		Time:                   nil,
 		MinVersion:             tls.VersionTLS13,
 		MaxVersion:             tls.VersionTLS13,
-		SessionTicketsDisabled: true,
+		SessionTicketsDisabled: false,
 		Certificates:           []tls.Certificate{router.router_cert_when_acts_as_a_server},
 		ClientAuth:             tls.RequireAndVerifyClientCert,
 		ClientCAs:              router.router_ca_pool_when_acts_as_a_server,
@@ -68,11 +69,15 @@ func NewRouter(_sf service_function.ServiceFunction, _lw *logwriter.LogWriter) (
 	router.frontend = &http.Server{
 		Addr:         env.Config.Sf.Listen_addr,
 		TLSConfig:    router.tls_config,
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 5,
+		ReadTimeout:  time.Minute * 5,
+		WriteTimeout: time.Minute * 5,
 		Handler:      mux,
 		ErrorLog:     log.New(router.lw, "", 0),
 	}
+
+    http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 10000
+    http.DefaultTransport.(*http.Transport).TLSHandshakeTimeout = 0 * time.Second
+
 	return router, nil
 }
 
@@ -97,17 +102,36 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// ToDo: add extracting of the next hop address from the list of IPs
 
+    fmt.Println(req.Header.Get("sfp"))
+
 	// Read the first value of "Sfp" field (required for service HTTPZT infrastructure) of the http header
-	dst := req.Header.Get("Sfp")
-	req.Header.Del("Sfp")
-	service_url, _ := url.Parse(dst)
+	sfp_as_string := req.Header.Get("sfp")
+	req.Header.Del("sfp")
+
+    if len(sfp_as_string) == 0 {
+        // TODO: return an error?
+        return
+    }
+
+    sfp_slices := strings.Split(sfp_as_string, ",")
+    next_hop := sfp_slices[0]
+    sfp_slices = sfp_slices[1:]
+    if len(sfp_slices) != 0 {
+        sfp_as_string = strings.Join(sfp_slices[:], ",")
+        req.Header.Set("sfp", sfp_as_string)
+    }
+
+	service_url, _ := url.Parse(next_hop)
 	proxy := httputil.NewSingleHostReverseProxy(service_url)
 
 	// When the PEP is acting as a client; this defines his behavior
 	proxy.Transport = &http.Transport{
+        IdleConnTimeout: 10 * time.Second,
+        MaxIdleConnsPerHost: 10000,
 		TLSClientConfig: &tls.Config{
 			Certificates:       []tls.Certificate{router.router_cert_when_acts_as_a_client},
 			InsecureSkipVerify: true,
+            SessionTicketsDisabled: false,
 			ClientAuth:         tls.RequireAndVerifyClientCert,
 			ClientCAs:          router.router_ca_pool_when_acts_as_a_client,
 		},
