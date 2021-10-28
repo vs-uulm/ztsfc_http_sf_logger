@@ -102,7 +102,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// ToDo: add extracting of the next hop address from the list of IPs
 
-    fmt.Println(req.Header.Get("sfp"))
+    //fmt.Println(req.Header.Get("sfp"))
 
 	// Read the first value of "Sfp" field (required for service HTTPZT infrastructure) of the http header
 	sfp_as_string := req.Header.Get("sfp")

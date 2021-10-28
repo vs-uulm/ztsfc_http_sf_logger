@@ -20,5 +20,5 @@ conf.yml
 
 # Log files
 *.log
-sf-logger*.log
 *.pprof
+main
