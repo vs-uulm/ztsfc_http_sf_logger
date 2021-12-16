@@ -22,3 +22,16 @@ conf.yml
 *.log
 *.pprof
 main
+
+# Config files
+/config/*
+!config/example_conf.yml
+
+# VSCode config
+/.vscode
+
+# Executable
+/ztsfc_http_sf_logger
+
+# Old files
+*.go-old

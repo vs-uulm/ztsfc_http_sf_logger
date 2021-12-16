@@ -1,0 +1,34 @@
+# This is an example configuration for the ZTSFC PEP prototype.
+# Copy it to config.yaml and adapt it to your needs.
+
+# Section system_logger contains basic configuration for the internal logger.
+# The system_logger_logging_level is used to determine how rich should be the logger output
+# Supported values are: Trace, Debug, Info, Warning, Error, Fatal and Panic (case insensitive)
+# The system_logger_destination can be a log file path, where the logger will write its messages to,
+# or keyword "stdout", if the log messages should be printed to the standard output.
+# The system_logger_format defines, which formatter will be used to format the log messages.
+# The option supports two values: text, json.
+system_logger:
+  system_logger_logging_level: debug
+  system_logger_destination: stdout
+  system_logger_format: text
+
+# Section sf contains basic configuration for the service function.
+# The listen_addr defines the port, on which the SF accepts incoming connections.
+# The sections server and client have equivalent content - set of certificates:
+# The cert_shown_by_sf has a path to the x509 certificate, that the SF shows.
+# The privkey_for_cert_shown_by_sf has a path to a corresponding private key.
+# The certs_sf_accepts has a path to a CA certificate, that can check certificates,
+# that are shown to the service function by a client, a service or other sefvice functions.
+# The server section has the certificate set for SF to accept incoming connections.
+# The client section has the certificate set to initiate connections from the SF.
+sf:
+  listen_addr: ":443"
+  server:
+    cert_shown_by_sf:             /path/to/server_certificate.crt
+    privkey_for_cert_shown_by_sf: /path/to/server_private.key
+    certs_sf_accepts:             /path/to/accepted/server_ca.crt
+  client:
+    cert_shown_by_sf:             /path/to/client_certificate.crt
+    privkey_for_cert_shown_by_sf: /path/to/client_private.key
+    certs_sf_accepts:             /path/to/accepted/client_ca.crt
