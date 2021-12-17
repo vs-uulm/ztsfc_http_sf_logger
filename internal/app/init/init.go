@@ -8,7 +8,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	logger "github.com/vs-uulm/ztsfc_http_logger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
@@ -29,8 +32,8 @@ func InitSysLoggerParams() {
 	}
 
 	// Set a default log messages JSON formatter
-	if config.Config.SysLogger.IfTextFormatter == "" {
-		config.Config.SysLogger.IfTextFormatter = "json"
+	if config.Config.SysLogger.LogFormatter == "" {
+		config.Config.SysLogger.LogFormatter = "json"
 	}
 }
 
@@ -116,4 +119,15 @@ func loadCACertificate(sysLogger *logger.Logger, certfile string, componentName 
 	// Append a certificate to the pool
 	certPool.AppendCertsFromPEM(caRoot)
 	return nil
+}
+
+func SetupCloseHandler(logger *logger.Logger) {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		logger.Debug("- 'Ctrl + C' was pressed in the Terminal. Terminating...")
+		logger.Terminate()
+		os.Exit(0)
+	}()
 }

@@ -5,9 +5,9 @@ import "crypto/x509"
 // The SysLoggerT struct defines system logger main attributes:
 // Logging level, destination to write the log messages, and the messages format
 type SysLoggerT struct {
-	LogLevel        string `yaml:"system_logger_logging_level"`
-	LogFilePath     string `yaml:"system_logger_destination"`
-	IfTextFormatter string `yaml:"system_logger_format"`
+	LogLevel     string `yaml:"system_logger_logging_level"`
+	LogFilePath  string `yaml:"system_logger_destination"`
+	LogFormatter string `yaml:"system_logger_format"`
 }
 
 // The struct CertSetT defines a set of a x509 certificate, corresponding private key

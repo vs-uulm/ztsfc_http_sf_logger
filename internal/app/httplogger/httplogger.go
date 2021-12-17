@@ -15,7 +15,7 @@ func New() (*HTTPLogger, error) {
 	// Create an instance of the system logger
 	sysLogger, err := logger.New(config.Config.SysLogger.LogFilePath,
 		config.Config.SysLogger.LogLevel,
-		config.Config.SysLogger.IfTextFormatter,
+		config.Config.SysLogger.LogFormatter,
 		logger.Fields{"type": "system"},
 	)
 	if err != nil {

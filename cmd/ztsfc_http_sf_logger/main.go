@@ -4,9 +4,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	logger "github.com/vs-uulm/ztsfc_http_logger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
@@ -36,13 +33,13 @@ func init() {
 	confInit.InitSysLoggerParams()
 	sysLogger, err = logger.New(config.Config.SysLogger.LogFilePath,
 		config.Config.SysLogger.LogLevel,
-		config.Config.SysLogger.IfTextFormatter,
+		config.Config.SysLogger.LogFormatter,
 		logger.Fields{"type": "system"},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetupCloseHandler(sysLogger)
+	confInit.SetupCloseHandler(sysLogger)
 
 	sysLogger.Debugf("loading logger configuration from '%s' - OK", confFilePath)
 
@@ -51,32 +48,21 @@ func init() {
 	if err != nil {
 		sysLogger.Fatal(err)
 	}
-
 }
 
 func main() {
 	// Create a new instance of the HTTP Logger service function
-	httpLogger, err := router.New(sysLogger)
+	httpLoggerSF, err := router.New(sysLogger)
 	if err != nil {
-		log.Fatal("unable to create a config")
+		sysLogger.Error(err)
+		return
 	}
-	sysLogger.Debug("new router is successfully created")
+	sysLogger.Debug("main: main(): new router is successfully created")
 
-	http.Handle("/", httpLogger)
+	http.Handle("/", httpLoggerSF)
 
-	err = httpLogger.ListenAndServeTLS()
+	err = httpLoggerSF.ListenAndServeTLS()
 	if err != nil {
-		sysLogger.Fatalf("ListenAndServeTLS() Fatal Error: %s", err.Error())
+		sysLogger.Error(err)
 	}
-}
-
-func SetupCloseHandler(logger *logger.Logger) {
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		logger.Debug("- 'Ctrl + C' was pressed in the Terminal. Terminating...")
-		logger.Terminate()
-		os.Exit(0)
-	}()
 }
