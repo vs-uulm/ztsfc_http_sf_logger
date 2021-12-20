@@ -6,6 +6,7 @@ package init
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -40,7 +41,7 @@ func InitSysLoggerParams() {
 // Function initializes the 'sf' section of the config file.
 // It loads the PEP certificate.
 func InitServFuncParams(sysLogger *logger.Logger) error {
-	// section := "sf"
+	var err error
 	fields := ""
 
 	if (config.Config.SF == config.ServiceFunctionT{}) {
@@ -83,10 +84,31 @@ func InitServFuncParams(sysLogger *logger.Logger) error {
 		return fmt.Errorf("init: InitServFuncParams(): in the section 'sf' the following required fields are missed: '%s'", strings.TrimSuffix(fields, ","))
 	}
 
-	// // Read CA certs used for signing client certs and are accepted by the PEP
-	// for _, acceptedClientCert := range config.Config.SF.CertsPepAcceptsWhenShownByClients {
-	// 	loadCACertificate(sysLogger, acceptedClientCert, "client", config.Config.CAcertPoolPepAcceptsFromExt)
-	// }
+	// Preload SF X509KeyPair when it acts as a server and write it to config
+	config.Config.X509KeyPairShownBySFAsServer, err = loadX509KeyPair(sysLogger,
+		config.Config.SF.ServerCerts.Cert_shown_by_sf, config.Config.SF.ServerCerts.Privkey_for_cert_shown_by_sf, "service", "")
+	if err != nil {
+		return err
+	}
+
+	// Preload CA certificate to verify certificates of incoming connections and write it to config
+	err = loadCACertificate(sysLogger, config.Config.SF.ServerCerts.Certs_sf_accepts, "service", config.Config.CAcertPoolPepAcceptsFromExt)
+	if err != nil {
+		return err
+	}
+
+	// Preload SF X509KeyPair when it acts as a client and write it to config
+	config.Config.X509KeyPairShownBySFAsClient, err = loadX509KeyPair(sysLogger,
+		config.Config.SF.ClientCerts.Cert_shown_by_sf, config.Config.SF.ClientCerts.Privkey_for_cert_shown_by_sf, "service", "")
+	if err != nil {
+		return err
+	}
+
+	// Preload CA certificate to verify certificates of outgoing connections and write it to config
+	err = loadCACertificate(sysLogger, config.Config.SF.ClientCerts.Certs_sf_accepts, "service", config.Config.CAcertPoolPepAcceptsFromInt)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -111,10 +133,10 @@ func loadCACertificate(sysLogger *logger.Logger, certfile string, componentName 
 	}
 	sysLogger.Debugf("init: loadCACertificate(): loading %s CA certificate from '%s' - OK", componentName, certfile)
 
-	// ToDo: check if certPool exists
-	// if certPool == ??? {}
-	//     return errors.New("provided certPool is nil")
-	// }
+	// Return error if provided certificate is nil
+	if certPool == nil {
+		return errors.New("provided certPool is nil")
+	}
 
 	// Append a certificate to the pool
 	certPool.AppendCertsFromPEM(caRoot)

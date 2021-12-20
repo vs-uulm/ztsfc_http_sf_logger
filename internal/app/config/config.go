@@ -1,35 +1,42 @@
-// Package config reads the config file and parses it to go data structures.
 package config
 
 import (
-	"errors"
-	"fmt"
-	"os"
-
-	"gopkg.in/yaml.v2"
+	"crypto/tls"
+	"crypto/x509"
 )
 
-// LoadConfig() parses a configuration yaml file into the global Config variable
-func LoadConfig(configPath string) error {
-	// If the config file path was not provided
-	if configPath == "" {
-		return errors.New("no configuration file is provided")
-	}
-
-	// Open config file
-	file, err := os.Open(configPath)
-	if err != nil {
-		return fmt.Errorf("unable to open the YAML configuration file '%s': %w", configPath, err)
-	}
-	defer file.Close()
-
-	// Init new YAML decode
-	d := yaml.NewDecoder(file)
-
-	// Decode configuration from the YAML config file
-	err = d.Decode(&Config)
-	if err != nil {
-		return fmt.Errorf("unable to decode the YAML configuration file '%s': %w", configPath, err)
-	}
-	return nil
+// The SysLoggerT struct defines system logger main attributes:
+// Logging level, destination to write the log messages, and the messages format
+type SysLoggerT struct {
+	LogLevel     string `yaml:"system_logger_logging_level"`
+	LogFilePath  string `yaml:"system_logger_destination"`
+	LogFormatter string `yaml:"system_logger_format"`
 }
+
+// The struct CertSetT defines a set of a x509 certificate, corresponding private key
+// and a CA for validating certificates, that are shown to the service function
+type CertSetT struct {
+	Cert_shown_by_sf             string `yaml:"cert_shown_by_sf"`
+	Privkey_for_cert_shown_by_sf string `yaml:"privkey_for_cert_shown_by_sf"`
+	Certs_sf_accepts             string `yaml:"certs_sf_accepts"`
+}
+
+// The struct ServiceFunctionT is for parsing the section 'sf' of the config file.
+type ServiceFunctionT struct {
+	ListenAddr  string   `yaml:"listen_addr"`
+	ServerCerts CertSetT `yaml:"server"`
+	ClientCerts CertSetT `yaml:"client"`
+}
+
+// ConfigT struct is for parsing the basic structure of the config file
+type ConfigT struct {
+	SysLogger                    SysLoggerT       `yaml:"system_logger"`
+	SF                           ServiceFunctionT `yaml:"sf"`
+	X509KeyPairShownBySFAsServer tls.Certificate
+	CAcertPoolPepAcceptsFromExt  *x509.CertPool
+	X509KeyPairShownBySFAsClient tls.Certificate
+	CAcertPoolPepAcceptsFromInt  *x509.CertPool
+}
+
+// Config contains all input from the config file and is is globally accessible
+var Config ConfigT

@@ -9,6 +9,7 @@ import (
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
 	confInit "github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/init"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/router"
+	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/yaml"
 )
 
 var (
@@ -24,7 +25,7 @@ func init() {
 	flag.Parse()
 
 	// Loading all config parameter from config file defined in "confFilePath"
-	err = config.LoadConfig(confFilePath)
+	err = yaml.LoadYamlFile(confFilePath, &config.Config)
 	if err != nil {
 		log.Fatal(err)
 	}
