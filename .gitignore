@@ -31,7 +31,7 @@ main
 /.vscode
 
 # Executable
-/ztsfc_http_sf_logger
+/main
 
 # Old files
 *.go-old
