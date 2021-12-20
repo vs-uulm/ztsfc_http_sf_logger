@@ -23,10 +23,6 @@ conf.yml
 *.pprof
 main
 
-# Config files
-/config/*
-!config/example_conf.yml
-
 # VSCode config
 /.vscode
 
@@ -35,3 +31,11 @@ main
 
 # Old files
 *.go-old
+
+# Certificates and configs
+certs/*
+!certs/.gitkeep
+*.swp
+config/*
+!config/.gitkeep
+!config/example_conf.yml
