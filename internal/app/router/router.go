@@ -5,8 +5,6 @@ package router
 
 import (
 	"crypto/tls"
-	"crypto/x509"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -17,24 +15,12 @@ import (
 	logger "github.com/vs-uulm/ztsfc_http_logger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/service_function"
-	// pdp "github.com/vs-uulm/ztsfc_http_pep/internal/app/authorization"
-	// "github.com/vs-uulm/ztsfc_http_pep/internal/app/config"
-	// "github.com/vs-uulm/ztsfc_http_pep/internal/app/metadata"
-	//	sfpl "github.com/vs-uulm/ztsfc_http_pep/internal/app/sfp_logic"
 )
 
 type Router struct {
 	tlsConfig *tls.Config
 	frontend  *http.Server
 	sysLogger *logger.Logger
-
-	// SF certificate and CA (when acts as a server)
-	router_cert_when_acts_as_a_server    tls.Certificate
-	router_ca_pool_when_acts_as_a_server *x509.CertPool
-
-	// SF certificate and CA (when acts as a client)
-	router_cert_when_acts_as_a_client    tls.Certificate
-	router_ca_pool_when_acts_as_a_client *x509.CertPool
 
 	// Service function to be called for every incoming HTTP request
 	sf service_function.ServiceFunction
@@ -45,7 +31,7 @@ func New(logger *logger.Logger) (*Router, error) {
 	router := new(Router)
 	router.sysLogger = logger
 
-	router.initAllCertificates(&config.Config)
+	// router.initAllCert(&config.Config)
 
 	// Create a tls.Config struct to accept incoming connections
 	router.tlsConfig = &tls.Config{
@@ -54,9 +40,9 @@ func New(logger *logger.Logger) (*Router, error) {
 		MinVersion:             tls.VersionTLS13,
 		MaxVersion:             tls.VersionTLS13,
 		SessionTicketsDisabled: false,
-		Certificates:           []tls.Certificate{router.router_cert_when_acts_as_a_server},
+		Certificates:           []tls.Certificate{config.Config.X509KeyPairShownBySFAsServer},
 		ClientAuth:             tls.RequireAndVerifyClientCert,
-		ClientCAs:              router.router_ca_pool_when_acts_as_a_server,
+		ClientCAs:              config.Config.CAcertPoolPepAcceptsFromExt,
 	}
 
 	// Frontend Handlers
@@ -126,11 +112,11 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		IdleConnTimeout:     10 * time.Second,
 		MaxIdleConnsPerHost: 10000,
 		TLSClientConfig: &tls.Config{
-			Certificates:           []tls.Certificate{router.router_cert_when_acts_as_a_client},
+			Certificates:           []tls.Certificate{config.Config.X509KeyPairShownBySFAsClient},
 			InsecureSkipVerify:     true,
 			SessionTicketsDisabled: false,
 			ClientAuth:             tls.RequireAndVerifyClientCert,
-			ClientCAs:              router.router_ca_pool_when_acts_as_a_client,
+			ClientCAs:              config.Config.CAcertPoolPepAcceptsFromInt,
 		},
 	}
 	proxy.ServeHTTP(w, req)
@@ -138,45 +124,4 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (router *Router) ListenAndServeTLS() error {
 	return router.frontend.ListenAndServeTLS("", "")
-}
-
-// The initAllCertificates() function loads all certificates from certificate files.
-func (router *Router) initAllCertificates(conf *config.ConfigT) error {
-	var err error
-
-	//
-	// 1. Server section
-	//
-	// 1.1: Load SF Cert that is shown when SF operates as a server
-	router.router_cert_when_acts_as_a_server, err = tls.LoadX509KeyPair(conf.SF.ServerCerts.Cert_shown_by_sf, conf.SF.ServerCerts.Privkey_for_cert_shown_by_sf)
-	if err != nil {
-		return fmt.Errorf("loading external X509KeyPair from %s and %s - FAIL: %w", conf.SF.ServerCerts.Cert_shown_by_sf, conf.SF.ServerCerts.Privkey_for_cert_shown_by_sf, err)
-	}
-	router.sysLogger.Debugf("loading external X509KeyPair from %s and %s - OK", conf.SF.ServerCerts.Cert_shown_by_sf, conf.SF.ServerCerts.Privkey_for_cert_shown_by_sf)
-
-	// 1.2: Load the CA's root certificate that was used to sign all incoming requests certificates
-	router.router_ca_pool_when_acts_as_a_server, err = makeCAPool(conf.SF.ServerCerts.Certs_sf_accepts)
-	if err != nil {
-		return fmt.Errorf("loading CA certificate for signing incoming requests from %s - FAIL: %w", conf.SF.ServerCerts.Certs_sf_accepts, err)
-	}
-	router.sysLogger.Debugf("loading CA certificate for signing incoming requests from %s - OK", conf.SF.ServerCerts.Certs_sf_accepts)
-
-	//
-	// 2. Client section
-	//
-	// 2.1: Load SF Cert that is shown when SF operates as a client
-	router.router_cert_when_acts_as_a_client, err = tls.LoadX509KeyPair(conf.SF.ClientCerts.Cert_shown_by_sf, conf.SF.ClientCerts.Privkey_for_cert_shown_by_sf)
-	if err != nil {
-		return fmt.Errorf("loading client X509KeyPair from %s and %s - FAIL: %w", conf.SF.ClientCerts.Cert_shown_by_sf, conf.SF.ClientCerts.Privkey_for_cert_shown_by_sf, err)
-	}
-	router.sysLogger.Debugf("loading client X509KeyPair from %s and %s - OK", conf.SF.ClientCerts.Cert_shown_by_sf, conf.SF.ClientCerts.Privkey_for_cert_shown_by_sf)
-
-	// 2.2: Load the CA's root certificate that was used to sign certificates of the SF connection destination
-	router.router_ca_pool_when_acts_as_a_client, err = makeCAPool(conf.SF.ClientCerts.Certs_sf_accepts)
-	if err != nil {
-		return fmt.Errorf("loading CA certificate for signing outgoing requests from %s - FAIL: %w", conf.SF.ClientCerts.Certs_sf_accepts, err)
-	}
-	router.sysLogger.Debugf("loading CA certificate for signing outgoing requests from %s - OK", conf.SF.ClientCerts.Certs_sf_accepts)
-
-	return nil
 }

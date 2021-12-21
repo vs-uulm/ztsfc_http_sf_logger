@@ -6,13 +6,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-
-	// "crypto/x509/pkix"
 	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -45,7 +42,6 @@ type ServiceFunctionLogger struct {
 	name        string
 	httpLogger  *logger.Logger
 	logFileName string
-	// logLevel    int
 }
 
 type HTTPMultipartFormFile struct {

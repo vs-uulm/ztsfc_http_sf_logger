@@ -38,8 +38,8 @@ func InitSysLoggerParams() {
 	}
 }
 
-// Function initializes the 'sf' section of the config file.
-// It loads the PEP certificate.
+// Function initializes the 'sf' section of the config file
+// and loads the SF certificates.
 func InitServFuncParams(sysLogger *logger.Logger) error {
 	var err error
 	fields := ""

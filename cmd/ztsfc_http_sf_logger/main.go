@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/x509"
 	"flag"
 	"log"
 	"net/http"
@@ -43,6 +44,10 @@ func init() {
 	confInit.SetupCloseHandler(sysLogger)
 
 	sysLogger.Debugf("loading logger configuration from '%s' - OK", confFilePath)
+
+	// Create Certificate Pools for the CA certificates used by the SF Logger
+	config.Config.CAcertPoolPepAcceptsFromExt = x509.NewCertPool()
+	config.Config.CAcertPoolPepAcceptsFromInt = x509.NewCertPool()
 
 	// sf
 	err = confInit.InitServFuncParams(sysLogger)
