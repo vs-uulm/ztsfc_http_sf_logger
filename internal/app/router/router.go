@@ -14,6 +14,7 @@ import (
 
 	logger "github.com/vs-uulm/ztsfc_http_logger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
+	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/httplogger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/service_function"
 )
 
@@ -27,11 +28,16 @@ type Router struct {
 }
 
 func New(logger *logger.Logger) (*Router, error) {
+	var err error
+
 	// Create a new instance of the Router
 	router := new(Router)
 	router.sysLogger = logger
 
-	// router.initAllCert(&config.Config)
+	router.sf, err = httplogger.New()
+	if err != nil {
+		return nil, err
+	}
 
 	// Create a tls.Config struct to accept incoming connections
 	router.tlsConfig = &tls.Config{

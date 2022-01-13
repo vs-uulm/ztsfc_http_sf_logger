@@ -26,6 +26,7 @@ type ServiceFunctionT struct {
 	ListenAddr  string   `yaml:"listen_addr"`
 	ServerCerts CertSetT `yaml:"server"`
 	ClientCerts CertSetT `yaml:"client"`
+	LogFilePath string   `yaml:"logFilePath"`
 }
 
 // ConfigT struct is for parsing the basic structure of the config file
