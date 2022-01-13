@@ -68,12 +68,7 @@ func New(logger *logger.Logger) (*Router, error) {
 	return router, nil
 }
 
-// func addHSTSHeader(w http.ResponseWriter) {
-// 	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-// }
-
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-
 	// Log the http request
 	router.sysLogger.LogHTTPRequest(req)
 

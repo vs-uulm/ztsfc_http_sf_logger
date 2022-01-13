@@ -57,24 +57,35 @@ func New() (*HTTPLogger, error) {
 	return &HTTPLogger{packetLogger: packetLogger}, nil
 }
 
-func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request) (forward bool) {
-	var (
-		logLevel         uint32 = SFLOGGER_REGISTER_PACKETS_ONLY
-		LoggerHeaderName string = "Sfloggerlevel"
-	)
+// ApplyFunction() is the main entry point of the Service Function.
+// In the case of a SF Logger it extracts the logging level as a MetaData from incoming http packet headers,
+// and logs incoming packets according to the received logging level.
+// If no errors occured, the packet is forwarded to the next Service Function or to the target servcie.
+// In case of an error the Logger SF returns false and the packet is dropped.
+func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request) bool {
+	// Binary value, that instructs the Logger SF what to log and how detailed.
+	var logLevel uint32 = SFLOGGER_REGISTER_PACKETS_ONLY
+
+	// Name of the http packet header with the logging level
+	var LoggerHeaderName string = "Sfloggerlevel"
 
 	// Get a logging level value from an HTTP request packet header
 	logLevelString, ok := req.Header[LoggerHeaderName]
 	if !ok {
 		httpl.packetLogger.WithFields(httpl.fields).Error("the logging level header is absent")
 
+		// !ToDo: should the Logger SF form any user responce?
 		io.WriteString(w, "A packet logging level is not set. Attention! The connection could be compromised.")
 		w.WriteHeader(http.StatusForbidden) // 403
-		return
+		// !end
+
+		return false
 	}
+
+	// Delete the logging level packet header
 	req.Header.Del(LoggerHeaderName)
 
-	// Convert the string into uint32 value
+	// Convert the logging level string value into a uint32 one
 	u64, err := strconv.ParseUint(logLevelString[0], 10, 32)
 	if err != nil {
 		httpl.packetLogger.WithFields(httpl.fields).Errorf("unable to parse the logginbg level value '%s'", logLevelString[0])
@@ -111,22 +122,28 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 
 	// END DEBUG
 
+	// Fields contain all information, that will be logged
 	httpl.fields = logger.Fields{
 		"Host":       req.Host,
 		"URL":        req.URL,
 		"RemoteAddr": req.RemoteAddr,
 	}
 
+	// If present add the "X-Forwarded-For" header to the logs
 	addr, ok := req.Header["X-Forwarded-For"]
 	if ok && len(addr) > 0 {
 		httpl.fields["X-Forwarded-For"] = addr
 	}
 
+	// Next sections will add different information to the httpl.fields
+	// depending on a presence of corresponding bits in the logLevel binary value.
+
 	// SFLOGGER_REGISTER_PACKETS_ONLY
+	// Just a fact of incoming packet is logged.
+	// The bit is exclusive, thus if it presents, nothing else is checked.
 	if logLevel&SFLOGGER_REGISTER_PACKETS_ONLY != 0 {
 		httpl.packetLogger.WithFields(httpl.fields).Info("HTTP request")
-		forward = true
-		return
+		return true
 	}
 
 	// SFLOGGER_PRINT_GENERAL_INFO
@@ -145,6 +162,7 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 	}
 
 	// SFLOGGER_PRINT_BODY
+	// Body processing can cause errors, thus the function returns an error value
 	if logLevel&SFLOGGER_PRINT_BODY != 0 {
 		err = httpl.addBodyFields(req, logLevel)
 		if err != nil {
@@ -153,6 +171,7 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 	}
 
 	// SFLOGGER_PRINT_FORMS
+	// Forms processing can cause errors, thus the function returns an error value
 	if logLevel&(SFLOGGER_PRINT_FORMS|SFLOGGER_PRINT_FORMS_FILE_CONTENT) != 0 {
 		err = httpl.addFormsFields(req, logLevel)
 		if err != nil {
@@ -175,9 +194,9 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 		httpl.addPredictedResponce(req, logLevel)
 	}
 
+	// All necessary fields have been formed. It remains to log a simple message.
 	httpl.packetLogger.WithFields(httpl.fields).Info("HTTP request")
-	forward = true
-	return
+	return true
 }
 
 func (httpl *HTTPLogger) GetSFName() string {
@@ -202,6 +221,7 @@ func getTLSVersionName(input uint16) string {
 	}
 }
 
+// AddGeneralInfo() adds some general information to the logging fields
 func (httpl *HTTPLogger) addGeneralInfo(req *http.Request, logLevel uint32) {
 	httpl.fields["TransferEncoding"] = req.TransferEncoding
 	httpl.fields["Method"] = req.Method
@@ -211,6 +231,7 @@ func (httpl *HTTPLogger) addGeneralInfo(req *http.Request, logLevel uint32) {
 	httpl.fields["Close"] = req.Close
 }
 
+// AddHeaderFields() adds packet headers :)
 func (httpl *HTTPLogger) addHeaderFields(req *http.Request, logLevel uint32) {
 	httpl.fields["Header"] = req.Header
 
@@ -220,45 +241,44 @@ func (httpl *HTTPLogger) addHeaderFields(req *http.Request, logLevel uint32) {
 	}
 }
 
+// AddTrailersInfo() adds trailer information
 func (httpl *HTTPLogger) addTrailersInfo(req *http.Request, logLevel uint32) {
-	// if len(req.Trailer) == 0 {
-	// 	if logLevel&SFLOGGER_PRINT_EMPTY_FIELDS != 0 {
-	// 		httpLogger = httpLogger.WithFields(logrus.Fields{"Trailer": ""})
-	// 	}
-	// } else {
-	// 	httpLogger = httpLogger.WithFields(logrus.Fields{"Trailer": req.Trailer})
-	// }
-
 	httpl.fields["Trailer"] = req.Trailer
 }
 
+// AddBodyFields() adds packet's body to the fields
 func (httpl *HTTPLogger) addBodyFields(req *http.Request, logLevel uint32) error {
 	if req.Body == http.NoBody {
 		httpl.fields["Body"] = req.Body
-	} else {
-		// ! ToDo: debug a request body printing!
-		// Manually save the request body
-		body, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return fmt.Errorf("httplogger: addBodyFields(): unable to read the request body: %w", err)
-		}
-
-		// req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-
-		// !ToDo: check if creating a copy of an incoming request is necessary
-
-		// // Create a new request for parsing the body
-		// req2, err := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
-		// if err != nil {
-		// 	return false, fmt.Errorf("httplogger: addBodyFields(): unable to create a copy of the request: %w", err)
-		// }
-		// req2.Header = req.Header
-
-		httpl.fields["Body"] = string(body)
+		return nil
 	}
+
+	// ! ToDo: debug a request body printing!
+
+	// Manually save the request body
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return fmt.Errorf("httplogger: addBodyFields(): unable to read the request body: %w", err)
+	}
+
+	// Restore the packet's body
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+	// ! ToDo: check if creating a copy of an incoming request is necessary
+
+	// Create a new request for parsing the body
+	// req2, err := http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body))
+	// if err != nil {
+	// 	return false, fmt.Errorf("httplogger: addBodyFields(): unable to create a copy of the request: %w", err)
+	// }
+	// req2.Header = req.Header
+
+	httpl.fields["Body"] = string(body)
 	return nil
 }
 
+// AddFormsFields() adds packet's MultipartForm to the fields.
+// If the SFLOGGER_PRINT_FORMS_FILE_CONTENT bit is set in the logLevel, the file(s) content also will be logged
 func (httpl *HTTPLogger) addFormsFields(req *http.Request, logLevel uint32) error {
 	// Manually save the request body
 	body, err := ioutil.ReadAll(req.Body)
@@ -266,6 +286,7 @@ func (httpl *HTTPLogger) addFormsFields(req *http.Request, logLevel uint32) erro
 		return fmt.Errorf("httplogger: addFormsFields(): unable to read the request body: %w", err)
 	}
 
+	// Restore the packet's body
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 
 	// Create a copy of the request for parsing the body
@@ -285,69 +306,77 @@ func (httpl *HTTPLogger) addFormsFields(req *http.Request, logLevel uint32) erro
 	// Check if an instance of the multipart.Form struct has been created
 	if req2.MultipartForm == nil {
 		httpl.fields["MultipartForm"] = req2.MultipartForm
-	} else {
-		// Output MultipartForm Values
-		httpl.fields["MultipartForm Value"] = req2.MultipartForm.Value
-
-		// Output received files information
-		if req2.MultipartForm.File == nil {
-			httpl.fields["MultipartForm File"] = req2.MultipartForm.File
-		} else {
-			mfFiles := make(map[string]HTTPMultipartFormFile)
-			var mfFile HTTPMultipartFormFile
-
-			for fieldName, fileHeadersPointers := range req2.MultipartForm.File {
-				mfFile.fileHeadersPointers = fileHeadersPointers
-
-				// INFO:
-				// type FileHeader struct {
-				// 		Filename string
-				// 		Header   textproto.MIMEHeader
-				// 		Size     int64 // Go 1.9
-				// }
-
-				for iFH, pFH := range fileHeadersPointers {
-
-					fmt.Printf("fh[%d].Filename: %v\n", iFH, pFH.Filename)
-					fmt.Printf("fh[%d].Size: %v\n", iFH, pFH.Size)
-
-					// INFO:
-					// type textproto.MIMEHeader map[string][]string
-
-					for mimeHeaderName, mimeHeaders := range pFH.Header {
-						fmt.Printf("%v\n", mimeHeaderName)
-						for _, mimeHeader := range mimeHeaders {
-							fmt.Printf("\t%v\n", mimeHeader)
-						}
-					}
-
-					// SFLOGGER_PRINT_FORMS_FILE_CONTENT
-					if logLevel&SFLOGGER_PRINT_FORMS_FILE_CONTENT != 0 {
-						f, err := pFH.Open()
-						if err != nil {
-							return fmt.Errorf("httplogger: addFormsFields(): unable to open a file '%s': %w", fieldName, err)
-						}
-						defer f.Close()
-
-						fmt.Printf("    File %s content:\n", fieldName)
-						scanner := bufio.NewScanner(f)
-						for scanner.Scan() {
-							mfFile.content = append(mfFile.content, scanner.Text()...)
-						}
-
-						if err := scanner.Err(); err != nil {
-							return fmt.Errorf("httplogger: addFormsFields(): unable to read a file '%s': %w", fieldName, err)
-						}
-					}
-				}
-				mfFiles[fieldName] = mfFile
-			}
-			httpl.fields["MultipartForm File"] = mfFiles
-		}
+		return nil
 	}
+
+	// Output MultipartForm Values
+	httpl.fields["MultipartForm Value"] = req2.MultipartForm.Value
+
+	// Output received files information
+	if req2.MultipartForm.File == nil {
+		httpl.fields["MultipartForm File"] = req2.MultipartForm.File
+		return nil
+	}
+
+	mfFiles := make(map[string]HTTPMultipartFormFile)
+	var mfFile HTTPMultipartFormFile
+
+	for fieldName, fileHeadersPointers := range req2.MultipartForm.File {
+		mfFile.fileHeadersPointers = fileHeadersPointers
+
+		// INFO:
+		// type FileHeader struct {
+		// 		Filename string
+		// 		Header   textproto.MIMEHeader
+		// 		Size     int64 // Go 1.9
+		// }
+
+		// for iFH, pFH := range fileHeadersPointers {
+		for _, pFH := range fileHeadersPointers {
+
+			// fmt.Printf("fh[%d].Filename: %v\n", iFH, pFH.Filename)
+			// fmt.Printf("fh[%d].Size: %v\n", iFH, pFH.Size)
+
+			// INFO:
+			// type textproto.MIMEHeader map[string][]string
+
+			// for mimeHeaderName, mimeHeaders := range pFH.Header {
+			// 	fmt.Printf("%v\n", mimeHeaderName)
+			// 	for _, mimeHeader := range mimeHeaders {
+			// 		fmt.Printf("\t%v\n", mimeHeader)
+			// 	}
+			// }
+
+			// SFLOGGER_PRINT_FORMS_FILE_CONTENT
+			// Adds the file contents to the fields
+			if logLevel&SFLOGGER_PRINT_FORMS_FILE_CONTENT != 0 {
+				f, err := pFH.Open()
+				if err != nil {
+					return fmt.Errorf("httplogger: addFormsFields(): unable to open a file '%s': %w", fieldName, err)
+				}
+				defer f.Close()
+
+				// fmt.Printf("    File %s content:\n", fieldName)
+				scanner := bufio.NewScanner(f)
+				for scanner.Scan() {
+					mfFile.content = append(mfFile.content, scanner.Text()...)
+				}
+
+				if err := scanner.Err(); err != nil {
+					return fmt.Errorf("httplogger: addFormsFields(): unable to read a file '%s': %w", fieldName, err)
+				}
+			}
+		}
+
+		// Save the extracted fule to the map
+		mfFiles[fieldName] = mfFile
+	}
+
+	httpl.fields["MultipartForm File"] = mfFiles
 	return nil
 }
 
+// AddTLSMainInfo() adds information about TLS connection to the fields
 func (httpl *HTTPLogger) addTLSMainInfo(req *http.Request, logLevel uint32) {
 	httpl.fields["TLS.Version"] = getTLSVersionName(req.TLS.Version)
 	httpl.fields["TLS.HandshakeComplete"] = req.TLS.HandshakeComplete
@@ -359,15 +388,19 @@ func (httpl *HTTPLogger) addTLSMainInfo(req *http.Request, logLevel uint32) {
 	httpl.fields["TLS.OCSPResponse"] = req.TLS.OCSPResponse
 }
 
+// AddTLSCertInfo() adds information about TLS certificate to the fields
 func (httpl *HTTPLogger) addTLSCertInfo(req *http.Request, logLevel uint32) {
 	httpl.fields["TLS.PeerCertificates"] = req.TLS.PeerCertificates
 	httpl.fields["TLS.VerifiedChains"] = req.TLS.VerifiedChains
 }
 
+// AddPredictedResponce() adds to the fields a responce, that caused this request to be created
+// Actual only for a client redirects. The response .
 func (httpl *HTTPLogger) addPredictedResponce(req *http.Request, logLevel uint32) {
 	httpl.fields["Response"] = req.Response
 }
 
+// DeleteFieldIfPresent() removes from the fields map a key with a given name (if present)
 func (httpl *HTTPLogger) deleteFieldIfPresent(name string) {
 	_, ok := httpl.fields[name]
 	if ok {

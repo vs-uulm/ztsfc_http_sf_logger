@@ -25,7 +25,7 @@ func init() {
 	flag.StringVar(&confFilePath, "c", "", "Path to user defined yml config file")
 	flag.Parse()
 
-	// Loading all config parameter from config file defined in "confFilePath"
+	// Loading all config parameters from config file defined in "confFilePath"
 	err = yaml.LoadYamlFile(confFilePath, &config.Config)
 	if err != nil {
 		log.Fatal(err)
@@ -41,9 +41,10 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Configuring the system logger for graceful shutdown in case of "CTRL + C"
 	confInit.SetupCloseHandler(sysLogger)
 
-	sysLogger.Debugf("loading logger configuration from '%s' - OK", confFilePath)
+	sysLogger.Debugf("main: init(): loading logger configuration from '%s' - OK", confFilePath)
 
 	// Create Certificate Pools for the CA certificates used by the SF Logger
 	config.Config.CAcertPoolPepAcceptsFromExt = x509.NewCertPool()
@@ -63,7 +64,7 @@ func main() {
 		sysLogger.Error(err)
 		return
 	}
-	sysLogger.Debug("main: main(): new router is successfully created")
+	sysLogger.Infof("a Logger SF is running on '%s'", config.Config.SF.ListenAddr)
 
 	http.Handle("/", httpLoggerSF)
 

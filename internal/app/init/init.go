@@ -86,7 +86,7 @@ func InitServFuncParams(sysLogger *logger.Logger) error {
 
 	// Preload SF X509KeyPair when it acts as a server and write it to config
 	config.Config.X509KeyPairShownBySFAsServer, err = loadX509KeyPair(sysLogger,
-		config.Config.SF.ServerCerts.Cert_shown_by_sf, config.Config.SF.ServerCerts.Privkey_for_cert_shown_by_sf, "service", "")
+		config.Config.SF.ServerCerts.Cert_shown_by_sf, config.Config.SF.ServerCerts.Privkey_for_cert_shown_by_sf, "service", "server")
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func InitServFuncParams(sysLogger *logger.Logger) error {
 
 	// Preload SF X509KeyPair when it acts as a client and write it to config
 	config.Config.X509KeyPairShownBySFAsClient, err = loadX509KeyPair(sysLogger,
-		config.Config.SF.ClientCerts.Cert_shown_by_sf, config.Config.SF.ClientCerts.Privkey_for_cert_shown_by_sf, "service", "")
+		config.Config.SF.ClientCerts.Cert_shown_by_sf, config.Config.SF.ClientCerts.Privkey_for_cert_shown_by_sf, "service", "client")
 	if err != nil {
 		return err
 	}
@@ -117,10 +117,10 @@ func InitServFuncParams(sysLogger *logger.Logger) error {
 func loadX509KeyPair(sysLogger *logger.Logger, certfile, keyfile, componentName, certAttr string) (tls.Certificate, error) {
 	keyPair, err := tls.LoadX509KeyPair(certfile, keyfile)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("init: loadX509KeyPair(): loading %s X509KeyPair for %s from %s and %s - FAIL: %v",
+		return tls.Certificate{}, fmt.Errorf("init: loadX509KeyPair(): loading %s X509KeyPair for %s from '%s' and '%s' - FAIL: %v",
 			certAttr, componentName, certfile, keyfile, err)
 	}
-	sysLogger.Debugf("init: loadX509KeyPair(): loading %s X509KeyPair for %s from %s and %s - OK", certAttr, componentName, certfile, keyfile)
+	sysLogger.Debugf("init: loadX509KeyPair(): loading %s X509KeyPair for %s from '%s' and '%s' - OK", certAttr, componentName, certfile, keyfile)
 	return keyPair, nil
 }
 
