@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"strconv"
 
 	logger "github.com/vs-uulm/ztsfc_http_logger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
@@ -57,6 +56,24 @@ func New() (*HTTPLogger, error) {
 	return &HTTPLogger{packetLogger: packetLogger}, nil
 }
 
+var loggingLevels = map[string]uint32{
+	"basic": SFLOGGER_PRINT_GENERAL_INFO |
+		SFLOGGER_PRINT_HEADER_FIELDS,
+	"advanced": SFLOGGER_PRINT_GENERAL_INFO |
+		SFLOGGER_PRINT_HEADER_FIELDS |
+		SFLOGGER_PRINT_TRAILERS |
+		SFLOGGER_PRINT_FORMS |
+		SFLOGGER_PRINT_FORMS_FILE_CONTENT |
+		SFLOGGER_PRINT_REDIRECTED_RESPONSE,
+	"full": SFLOGGER_PRINT_GENERAL_INFO |
+		SFLOGGER_PRINT_HEADER_FIELDS |
+		SFLOGGER_PRINT_TRAILERS |
+		SFLOGGER_PRINT_BODY |
+		SFLOGGER_PRINT_FORMS |
+		SFLOGGER_PRINT_FORMS_FILE_CONTENT |
+		SFLOGGER_PRINT_REDIRECTED_RESPONSE,
+}
+
 // ApplyFunction() is the main entry point of the Service Function.
 // In the case of a SF Logger it extracts the logging level as a MetaData from incoming http packet headers,
 // and logs incoming packets according to the received logging level.
@@ -67,7 +84,9 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 	var logLevel uint32 = SFLOGGER_REGISTER_PACKETS_ONLY
 
 	// Name of the http packet header with the logging level
-	var LoggerHeaderName string = "Sfloggerlevel"
+	var LoggerHeaderName string = "Logger_MD"
+
+	var err error
 
 	// Get a logging level value from an HTTP request packet header
 	logLevelString, ok := req.Header[LoggerHeaderName]
@@ -86,41 +105,11 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 	req.Header.Del(LoggerHeaderName)
 
 	// Convert the logging level string value into a uint32 one
-	u64, err := strconv.ParseUint(logLevelString[0], 10, 32)
-	if err != nil {
-		httpl.packetLogger.WithFields(httpl.fields).Errorf("unable to parse the logginbg level value '%s'", logLevelString[0])
+	logLevel, ok = loggingLevels[logLevelString[0]]
+	if !ok {
+		httpl.packetLogger.WithFields(httpl.fields).Errorf("invalid logginbg level: '%s'", logLevelString[0])
 		return false
 	}
-	logLevel = uint32(u64)
-
-	// SFLOGGER_REGISTER_PACKETS_ONLY
-	// SFLOGGER_PRINT_GENERAL_INFO
-	// SFLOGGER_PRINT_HEADER_FIELDS
-	// SFLOGGER_PRINT_TRAILERS
-	// SFLOGGER_PRINT_BODY
-	// SFLOGGER_PRINT_FORMS
-	// SFLOGGER_PRINT_FORMS_FILE_CONTENT
-	// SFLOGGER_PRINT_TLS_MAIN_INFO
-	// SFLOGGER_PRINT_TLS_CERTIFICATES
-	// SFLOGGER_PRINT_TLS_PUBLIC_KEY
-	// SFLOGGER_PRINT_TLS_CERT_SIGNATURE
-	// SFLOGGER_PRINT_RAW
-	// SFLOGGER_PRINT_REDIRECTED_RESPONSE
-	// SFLOGGER_PRINT_EMPTY_FIELDS
-
-	// DEBUG
-
-	logLevel =
-		// SFLOGGER_PRINT_GENERAL_INFO |
-		// SFLOGGER_PRINT_HEADER_FIELDS |
-		// SFLOGGER_PRINT_TRAILERS |
-		// SFLOGGER_PRINT_BODY |
-		// SFLOGGER_PRINT_FORMS |
-		// SFLOGGER_PRINT_FORMS_FILE_CONTENT |
-		// SFLOGGER_PRINT_TLS_MAIN_INFO |
-		SFLOGGER_PRINT_TLS_CERTIFICATES
-
-	// END DEBUG
 
 	// Fields contain all information, that will be logged
 	httpl.fields = logger.Fields{
