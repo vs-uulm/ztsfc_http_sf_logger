@@ -84,7 +84,7 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 	var logLevel uint32 = SFLOGGER_REGISTER_PACKETS_ONLY
 
 	// Name of the http packet header with the logging level
-	var LoggerHeaderName string = "Logger_MD"
+	var LoggerHeaderName string = "Logger_md"
 
 	var err error
 
