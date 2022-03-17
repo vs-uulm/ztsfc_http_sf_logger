@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"strings"
 
 	logger "github.com/vs-uulm/ztsfc_http_logger"
 	"github.com/vs-uulm/ztsfc_http_sf_logger/internal/app/config"
@@ -84,12 +85,12 @@ func (httpl *HTTPLogger) ApplyFunction(w http.ResponseWriter, req *http.Request)
 	var logLevel uint32 = SFLOGGER_REGISTER_PACKETS_ONLY
 
 	// Name of the http packet header with the logging level
-	var LoggerHeaderName string = "Logger_md"
+	var LoggerHeaderName string = "logger_md"
 
 	var err error
 
 	// Get a logging level value from an HTTP request packet header
-	logLevelString, ok := req.Header[LoggerHeaderName]
+	logLevelString, ok := lookForHeaderByName(req, LoggerHeaderName)
 	if !ok {
 		httpl.packetLogger.WithFields(httpl.fields).Error("the logging level header is absent")
 
@@ -395,4 +396,13 @@ func (httpl *HTTPLogger) deleteFieldIfPresent(name string) {
 	if ok {
 		delete(httpl.fields, name)
 	}
+}
+
+func lookForHeaderByName(req *http.Request, headerName string) ([]string, bool) {
+	for hName, hValue := range req.Header {
+		if strings.ToLower(hName) == headerName {
+			return hValue, true
+		}
+	}
+	return nil, false
 }
