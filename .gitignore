@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+main
 
 # Test binary, built with `go test -c`
 *.test
@@ -11,31 +12,20 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# .env file
-.env
-conf.yml
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Log files
+# Module specific
 *.log
 *.pprof
-main
 
-# VSCode config
-/.vscode
-
-# Executable
-/main
-
-# Old files
-*.go-old
-
-# Certificates and configs
+# General
 certs/*
 !certs/.gitkeep
-*.swp
 config/*
 !config/.gitkeep
-!config/example_conf.yml
+!config/example_config.yml
+policies/*
+!policies/.gitkeep
+!policies/example_policies.yml
+
+# Misc
+*.swp
+/.vscode
