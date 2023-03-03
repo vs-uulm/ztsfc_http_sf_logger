@@ -105,21 +105,32 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req.Header.Set("sfp", sfp_as_string)
 	}
 
-	service_url, _ := url.Parse(next_hop)
-	proxy := httputil.NewSingleHostReverseProxy(service_url)
+	nextHopURL, _ := url.Parse(next_hop)
+	proxy := httputil.NewSingleHostReverseProxy(nextHopURL)
 
-	// When the PEP is acting as a client; this defines his behavior
-	proxy.Transport = &http.Transport{
-		IdleConnTimeout:     10 * time.Second,
-		MaxIdleConnsPerHost: 10000,
-		TLSClientConfig: &tls.Config{
-			Certificates:           []tls.Certificate{config.Config.X509KeyPairShownBySFAsClient},
-			InsecureSkipVerify:     true,
-			SessionTicketsDisabled: false,
-			ClientAuth:             tls.RequireAndVerifyClientCert,
-			ClientCAs:              config.Config.CAcertPoolPepAcceptsFromInt,
-		},
-	}
+    // set proxy settings depending on the next hop scheme: http or https
+    // HTTPS
+    if nextHopURL.Scheme == "https" {
+            // When the PEP is acting as a client; this defines his behavior
+            proxy.Transport = &http.Transport{
+                    IdleConnTimeout:     10 * time.Second,
+                    MaxIdleConnsPerHost: 10000,
+                    TLSClientConfig: &tls.Config{
+                            Certificates:       []tls.Certificate{config.Config.X509KeyPairShownBySFAsClient},
+                            InsecureSkipVerify: true,
+                            ClientAuth:         tls.RequireAndVerifyClientCert,
+                            ClientCAs:          config.Config.CAcertPoolPepAcceptsFromInt,
+                    },
+            }
+    }
+    // HTTP
+    if nextHopURL.Scheme == "http" {
+            proxy.Transport = &http.Transport{
+                    IdleConnTimeout:     10 * time.Second,
+                    MaxIdleConnsPerHost: 10000,
+            }
+    }
+
 	proxy.ServeHTTP(w, req)
 }
 
